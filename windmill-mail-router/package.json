@@ -1,0 +1,11 @@
+{
+  "name": "windmill-mail-router",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "postal-mime": "^2.4.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "latest"
+  }
+}

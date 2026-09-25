@@ -1,0 +1,6 @@
+name = "windmill-mail-router"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+[vars]
+WINDMILL_BASE_URL = "https://windmill.rn.ax"

@@ -1,0 +1,10 @@
+name = "windmill-public-proxy"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+[vars]
+WINDMILL_WORKSPACE = "claude"
+
+[[routes]]
+pattern = "wm.rn.ax"
+custom_domain = true
