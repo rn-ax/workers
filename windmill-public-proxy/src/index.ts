@@ -31,10 +31,18 @@ export default {
 			body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body,
 		});
 
+		// Feed scripts return plain JSON from Windmill, but JSON Feed's
+		// registered media type is application/feed+json — some readers
+		// (e.g. Feedbin) use the header to decide something is a feed at
+		// all, before ever looking at the body.
+		const contentType = path.startsWith("feeds/")
+			? "application/feed+json"
+			: upstream.headers.get("content-type") ?? "application/json";
+
 		return new Response(upstream.body, {
 			status: upstream.status,
 			headers: {
-				"content-type": upstream.headers.get("content-type") ?? "application/json",
+				"content-type": contentType,
 			},
 		});
 	},
