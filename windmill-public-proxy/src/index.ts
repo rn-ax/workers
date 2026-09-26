@@ -12,8 +12,12 @@ export default {
 		const url = new URL(request.url);
 		const path = url.pathname.replace(/^\/+/, "");
 
+		// Every script exposed here is deliberately folder-owned (never a
+		// bare user-owned u/... script) and, so far, always a script rather
+		// than a flow — so the public path is just <folder>/<name>, and we
+		// fill in Windmill's p/f/ (script, folder-owned) prefix ourselves.
 		const target = new URL(
-			`${WINDMILL_BASE_URL}/api/w/${env.WINDMILL_WORKSPACE}/jobs/run_wait_result/${path}`
+			`${WINDMILL_BASE_URL}/api/w/${env.WINDMILL_WORKSPACE}/jobs/run_wait_result/p/f/${path}`
 		);
 		target.search = url.search;
 
