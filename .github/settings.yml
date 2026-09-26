@@ -3,4 +3,3 @@ _extends: poppycock
 repository:
   name: workers
   description: Cloudflare Workers for the rn.ax suite
-  private: false
