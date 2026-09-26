@@ -19,6 +19,10 @@ jobs:
         working-directory: ${{ matrix.worker }}
         run: npm install
 
+      - name: Test
+        working-directory: ${{ matrix.worker }}
+        run: npm test --if-present
+
       - name: Deploy
         working-directory: ${{ matrix.worker }}
         env:
