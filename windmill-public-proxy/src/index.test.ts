@@ -90,4 +90,34 @@ describe("windmill-public-proxy", () => {
 		await waitOnExecutionContext(ctx2);
 		expect(postFetch.mock.calls[0]![1]!.body).not.toBeUndefined();
 	});
+
+	it("returns a clean 404 without hitting upstream when the path is empty", async () => {
+		const fetchMock = stubFetch(new Response("{}"));
+
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(new Request("https://wm.rn.ax/"), env, ctx);
+		await waitOnExecutionContext(ctx);
+
+		expect(response.status).toBe(404);
+		expect(response.headers.get("content-type")).toBe("application/json");
+		expect(await response.json()).toEqual({ error: "not found" });
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it("replaces Windmill's raw 404 body with a clean, generic one", async () => {
+		stubFetch(
+			new Response("Not found: script not found at name f/nonexistent (lib.rs:2239)", {
+				status: 404,
+				headers: { "content-type": "text/plain" },
+			})
+		);
+
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(new Request("https://wm.rn.ax/nonexistent"), env, ctx);
+		await waitOnExecutionContext(ctx);
+
+		expect(response.status).toBe(404);
+		expect(response.headers.get("content-type")).toBe("application/json");
+		expect(await response.json()).toEqual({ error: "not found" });
+	});
 });
