@@ -7,10 +7,21 @@ export interface Env {
 
 const WINDMILL_BASE_URL = "https://windmill.rn.ax";
 
+function notFound(): Response {
+	return new Response(JSON.stringify({ error: "not found" }), {
+		status: 404,
+		headers: { "content-type": "application/json" },
+	});
+}
+
 export default {
 	async fetch(request: Request, env: Env): Promise<Response> {
 		const url = new URL(request.url);
 		const path = url.pathname.replace(/^\/+/, "");
+
+		if (!path) {
+			return notFound();
+		}
 
 		// Every script exposed here is deliberately folder-owned (never a
 		// bare user-owned u/... script) and, so far, always a script rather
@@ -30,6 +41,14 @@ export default {
 			},
 			body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body,
 		});
+
+		// Windmill's own 404 body leaks internal implementation detail (e.g.
+		// "script not found at name f/foo (lib.rs:2239)") — anything
+		// unexpected gets a clean, generic 404 instead of that raw upstream
+		// error text.
+		if (upstream.status === 404) {
+			return notFound();
+		}
 
 		// Feed scripts return plain JSON from Windmill, but JSON Feed's
 		// registered media type is application/feed+json — some readers
