@@ -55,7 +55,7 @@ describe("windmill-public-proxy", () => {
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 		const [calledUrl] = fetchMock.mock.calls[0]!;
 		expect(calledUrl.toString()).toBe(
-			"https://windmill.rn.ax/api/w/claude/jobs/run_wait_result/p/f/feeds/foo?bar=baz"
+			"https://windmill.rn.ax/api/w/agent/jobs/run_wait_result/p/f/feeds/foo?bar=baz"
 		);
 	});
 
@@ -119,5 +119,28 @@ describe("windmill-public-proxy", () => {
 		expect(response.status).toBe(404);
 		expect(response.headers.get("content-type")).toBe("application/json");
 		expect(await response.json()).toEqual({ error: "not found" });
+	});
+
+	it("redirects apps/<slug> to the app's public secret URL", async () => {
+		const fetchMock = stubFetch(new Response("{}"));
+
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(new Request("https://wm.rn.ax/apps/cost-claims"), env, ctx);
+		await waitOnExecutionContext(ctx);
+
+		expect(response.status).toBe(302);
+		expect(response.headers.get("location")).toBe("https://windmill.rn.ax/public/agent/test-secret");
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it("returns a clean 404 for an apps/<slug> not present in APP_SECRETS_JSON", async () => {
+		const fetchMock = stubFetch(new Response("{}"));
+
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(new Request("https://wm.rn.ax/apps/nonexistent"), env, ctx);
+		await waitOnExecutionContext(ctx);
+
+		expect(response.status).toBe(404);
+		expect(fetchMock).not.toHaveBeenCalled();
 	});
 });

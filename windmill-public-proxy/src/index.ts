@@ -3,6 +3,11 @@ export interface Env {
 	CF_ACCESS_CLIENT_SECRET: string;
 	WINDMILL_TOKEN: string;
 	WINDMILL_WORKSPACE: string;
+	// JSON map of URL slug -> Windmill app share secret (from `GET
+	// /api/w/<workspace>/apps/secret_of/<path>`), e.g. {"cost-claims": "..."}.
+	// Lets apps/<slug> below redirect to the real /public/<workspace>/<secret>
+	// URL without that secret ever appearing in a link anyone types or shares.
+	APP_SECRETS_JSON: string;
 }
 
 const WINDMILL_BASE_URL = "https://windmill.rn.ax";
@@ -14,6 +19,25 @@ function notFound(): Response {
 	});
 }
 
+// apps/<slug> -> 302 to windmill.rn.ax/public/<workspace>/<secret>. Only a
+// redirect, not a full reverse proxy: the app's own JS bundle makes further
+// requests using URLs the server bakes in as pointing at windmill.rn.ax
+// directly, so proxying the page itself would leave those follow-up calls
+// leaking straight back to the gated origin.
+function appRedirect(env: Env, slug: string): Response | null {
+	let secrets: Record<string, string>;
+	try {
+		secrets = JSON.parse(env.APP_SECRETS_JSON);
+	} catch {
+		return null;
+	}
+	const secret = secrets[slug];
+	if (!secret) {
+		return null;
+	}
+	return Response.redirect(`${WINDMILL_BASE_URL}/public/${env.WINDMILL_WORKSPACE}/${secret}`, 302);
+}
+
 export default {
 	async fetch(request: Request, env: Env): Promise<Response> {
 		const url = new URL(request.url);
@@ -21,6 +45,10 @@ export default {
 
 		if (!path) {
 			return notFound();
+		}
+
+		if (path.startsWith("apps/")) {
+			return appRedirect(env, path.slice("apps/".length)) ?? notFound();
 		}
 
 		// Every script exposed here is deliberately folder-owned (never a
