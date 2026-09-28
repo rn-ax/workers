@@ -14,6 +14,7 @@ export default defineConfig({
 					CF_ACCESS_CLIENT_ID: "test-client-id",
 					CF_ACCESS_CLIENT_SECRET: "test-client-secret",
 					WINDMILL_TOKEN: "test-token",
+					APP_SECRETS_JSON: JSON.stringify({ "cost-claims": "test-secret" }),
 				},
 			},
 		}),
