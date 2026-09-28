@@ -1,0 +1,35 @@
+name = "app-switcher"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+[[routes]]
+pattern = "baserow.rn.ax/*"
+zone_name = "rn.ax"
+
+[[routes]]
+pattern = "git.rn.ax/*"
+zone_name = "rn.ax"
+
+[[routes]]
+pattern = "noco.rn.ax/*"
+zone_name = "rn.ax"
+
+[[routes]]
+pattern = "radarr.rn.ax/*"
+zone_name = "rn.ax"
+
+[[routes]]
+pattern = "salt.rn.ax/*"
+zone_name = "rn.ax"
+
+[[routes]]
+pattern = "sonarr.rn.ax/*"
+zone_name = "rn.ax"
+
+[[routes]]
+pattern = "nas.rn.ax/*"
+zone_name = "rn.ax"
+
+[[routes]]
+pattern = "windmill.rn.ax/*"
+zone_name = "rn.ax"
