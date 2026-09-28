@@ -1,0 +1,13 @@
+{
+  "name": "app-switcher",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
+    "@cloudflare/workers-types": "latest",
+    "vitest": "^4.1.11"
+  }
+}
