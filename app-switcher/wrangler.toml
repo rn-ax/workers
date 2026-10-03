@@ -3,15 +3,43 @@ main = "src/index.ts"
 compatibility_date = "2026-09-01"
 
 [[routes]]
-pattern = "baserow.rn.ax/*"
+pattern = "book.rn.ax/*"
 zone_name = "rn.ax"
 
 [[routes]]
-pattern = "git.rn.ax/*"
+pattern = "butter.rn.ax/*"
 zone_name = "rn.ax"
 
 [[routes]]
-pattern = "noco.rn.ax/*"
+pattern = "copy.rn.ax/*"
+zone_name = "rn.ax"
+
+[[routes]]
+pattern = "globe.rn.ax/*"
+zone_name = "rn.ax"
+
+[[routes]]
+pattern = "grocy.rn.ax/*"
+zone_name = "rn.ax"
+
+[[routes]]
+pattern = "gym.rn.ax/*"
+zone_name = "rn.ax"
+
+[[routes]]
+pattern = "nut.rn.ax/*"
+zone_name = "rn.ax"
+
+[[routes]]
+pattern = "ovr.rn.ax/*"
+zone_name = "rn.ax"
+
+[[routes]]
+pattern = "rn.ax/*"
+zone_name = "rn.ax"
+
+[[routes]]
+pattern = "prompt.rn.ax/*"
 zone_name = "rn.ax"
 
 [[routes]]
@@ -19,11 +47,19 @@ pattern = "radarr.rn.ax/*"
 zone_name = "rn.ax"
 
 [[routes]]
-pattern = "salt.rn.ax/*"
+pattern = "song.rn.ax/*"
 zone_name = "rn.ax"
 
 [[routes]]
 pattern = "sonarr.rn.ax/*"
+zone_name = "rn.ax"
+
+[[routes]]
+pattern = "string.rn.ax/*"
+zone_name = "rn.ax"
+
+[[routes]]
+pattern = "tau.rn.ax/*"
 zone_name = "rn.ax"
 
 [[routes]]
@@ -32,4 +68,8 @@ zone_name = "rn.ax"
 
 [[routes]]
 pattern = "windmill.rn.ax/*"
+zone_name = "rn.ax"
+
+[[routes]]
+pattern = "work.rn.ax/*"
 zone_name = "rn.ax"

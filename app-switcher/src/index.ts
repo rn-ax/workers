@@ -7,14 +7,24 @@ interface AppLink {
 // is likely to clash with. Add more hosts here (and to wrangler.toml's
 // routes) once each one's been checked.
 const APPS: AppLink[] = [
-	{ name: "Baserow", host: "baserow.rn.ax" },
-	{ name: "Gitea", host: "git.rn.ax" },
-	{ name: "NocoDB", host: "noco.rn.ax" },
+	{ name: "Bookworm", host: "book.rn.ax" },
+	{ name: "Butterfly", host: "butter.rn.ax" },
+	{ name: "Copycat", host: "copy.rn.ax" },
+	{ name: "Globetrotter", host: "globe.rn.ax" },
+	{ name: "Grocy", host: "grocy.rn.ax" },
+	{ name: "Gymrat", host: "gym.rn.ax" },
+	{ name: "Nutcracker", host: "nut.rn.ax" },
+	{ name: "Overseerr", host: "ovr.rn.ax" },
+	{ name: "Portal", host: "rn.ax" },
+	{ name: "Prompthawk", host: "prompt.rn.ax" },
 	{ name: "Radarr", host: "radarr.rn.ax" },
-	{ name: "Saltcorn", host: "salt.rn.ax" },
+	{ name: "Songbird", host: "song.rn.ax" },
 	{ name: "Sonarr", host: "sonarr.rn.ax" },
+	{ name: "Stringbean", host: "string.rn.ax" },
+	{ name: "Tautulli", host: "tau.rn.ax" },
 	{ name: "TrueNAS", host: "nas.rn.ax" },
 	{ name: "Windmill", host: "windmill.rn.ax" },
+	{ name: "Workhorse", host: "work.rn.ax" },
 ].sort((a, b) => a.name.localeCompare(b.name));
 
 const BAR_HEIGHT = "28px";
