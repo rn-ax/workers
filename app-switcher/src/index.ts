@@ -27,7 +27,10 @@ const APPS: AppLink[] = [
 	{ name: "Workhorse", host: "work.rn.ax" },
 ].sort((a, b) => a.name.localeCompare(b.name));
 
-const BAR_HEIGHT = "28px";
+// Reserves space in the host page's body for the bar below. The bar's own
+// height is now implicit (padding + content), not a fixed constant, so this
+// is a deliberate overestimate rather than a measured value.
+const BAR_OFFSET = "2.75rem";
 
 function escapeHtml(value: string): string {
 	return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -38,10 +41,10 @@ function renderBar(currentHost: string): string {
 		const active = app.host === currentHost;
 		const color = active ? "#f9fafb" : "#9ca3af";
 		const weight = active ? "600" : "400";
-		return `<a href="https://${app.host}/" style="color:${color};font-weight:${weight};text-decoration:none;margin-right:16px;white-space:nowrap;">${escapeHtml(app.name)}</a>`;
+		return `<a href="https://${app.host}/" style="color:${color};font-weight:${weight};text-decoration:none;white-space:nowrap;">${escapeHtml(app.name)}</a>`;
 	}).join("");
 
-	return `<div style="position:fixed;top:0;left:0;right:0;height:${BAR_HEIGHT};line-height:${BAR_HEIGHT};background:#111827;padding:0 12px;font:12px system-ui,sans-serif;overflow-x:auto;white-space:nowrap;z-index:2147483647;box-sizing:border-box;">${links}</div>`;
+	return `<div style="position:fixed;top:0;left:0;right:0;padding:0.5rem 1rem;background:#111827;font:12px system-ui,sans-serif;display:flex;justify-content:center;align-items:center;gap:16px;overflow-x:auto;white-space:nowrap;z-index:2147483647;box-sizing:border-box;">${links}</div>`;
 }
 
 export default {
@@ -71,7 +74,7 @@ export default {
 				element(el) {
 					// padding (not margin) so it can't collapse into a child's
 					// own margin, and !important to beat the app's own body rule.
-					el.append(`<style>body{padding-top:${BAR_HEIGHT} !important}</style>`, { html: true });
+					el.append(`<style>body{padding-top:${BAR_OFFSET} !important}</style>`, { html: true });
 				},
 			});
 
