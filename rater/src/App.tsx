@@ -171,11 +171,15 @@ export default function App() {
             const state = await playerRef.current.getCurrentState()
             const uri = state?.track_window.current_track.uri
             if (!uri) return say('no current track')
-            await api(tokenRef.current, `/playlists/${playlistId}/items`, {
+            const count = async () =>
+                (await api(tokenRef.current, `/playlists/${playlistId}/items?limit=1&fields=total`)).total
+            const before = await count()
+            const added = await api(tokenRef.current, `/playlists/${playlistId}/items`, {
                 method: 'POST',
                 body: JSON.stringify({ uris: [uri] }),
             })
-            say(`added ${uri} to playlist (playlist write scope works)`)
+            const after = await count()
+            say(`added ${uri}: snapshot_id ${added?.snapshot_id ?? '(none returned)'}, items ${before} -> ${after}`)
         } catch (e) {
             say(`add FAILED: ${e}`)
             try {
