@@ -171,6 +171,8 @@ html.has-cover body { background: none; }
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
 }
+.notice .actions { display: flex; gap: 8px; margin-top: 10px; }
+.notice .button { padding: 6px 14px; font-size: 0.8rem; border-radius: 10px; }
 .notice.info { color: rgba(236, 238, 246, 0.85); border-color: var(--line); }
 .notice.warning { color: var(--warning); border-color: rgba(255, 180, 84, 0.35); }
 .notice.error { color: var(--error); border-color: rgba(255, 107, 122, 0.35); }

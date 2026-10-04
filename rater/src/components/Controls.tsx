@@ -1,7 +1,7 @@
 import { skipTarget } from '../seek'
 import { Back30Icon, Forward30Icon, PauseIcon, PlayIcon } from './icons'
 
-// Deliberately no previous/next: the song only changes when it ends or a rating restarts the list.
+// Deliberately no previous/next: the song only changes when it ends, or when a rating moves on to the next.
 export function Controls({ paused, positionMs, durationMs, onToggle, onSkip }: {
     paused: boolean
     positionMs: number

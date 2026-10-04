@@ -72,29 +72,34 @@ const storedUrisOf = async (token: string, playlistId: string, track: TrackRef):
 // Spotify answers 200 with the unchanged snapshot when a removal matched nothing, so success is only
 // believed once the playlist is actually shorter. Tries, in order: the URI the player reports, the original
 // URI of a relinked track, then whatever URI the playlist itself stores for that title and artist.
-// Returns false when the track is still in the playlist.
-export const removeFromPlaylist = async (token: string, playlistId: string, track: TrackRef): Promise<boolean> => {
+// Reports whether the track is gone, and how many entries the playlist has left.
+export const removeFromPlaylist = async (
+    token: string,
+    playlistId: string,
+    track: TrackRef,
+): Promise<{ removed: boolean; total: number }> => {
     const before = await playlistTotal(token, playlistId)
     const tried = new Set<string>()
+    let total = before
     const attempt = async (candidate: string) => {
         tried.add(candidate)
         const res = await removeItem(token, playlistId, candidate)
-        const after = await playlistTotal(token, playlistId)
-        console.info(`[rater] remove ${candidate}: items ${before} -> ${after}, snapshot ${res?.snapshot_id}`)
-        return after < before
+        total = await playlistTotal(token, playlistId)
+        console.info(`[rater] remove ${candidate}: items ${before} -> ${total}, snapshot ${res?.snapshot_id}`)
+        return total < before
     }
-    if (await attempt(track.uri)) return true
+    if (await attempt(track.uri)) return { removed: true, total }
 
     const original = await originalUriOfCurrentTrack(token)
     console.warn(`[rater] removing ${track.uri} changed nothing; original (linked_from) uri: ${original ?? 'none'}`)
-    if (original !== null && !tried.has(original) && (await attempt(original))) return true
+    if (original !== null && !tried.has(original) && (await attempt(original))) return { removed: true, total }
 
     const stored = await storedUrisOf(token, playlistId, track)
     console.warn(`[rater] uris the playlist stores for "${track.name}": ${stored.length ? stored.join(', ') : 'none found in its first 50 entries'}`)
     for (const candidate of stored) {
-        if (!tried.has(candidate) && (await attempt(candidate))) return true
+        if (!tried.has(candidate) && (await attempt(candidate))) return { removed: true, total }
     }
-    return false
+    return { removed: false, total }
 }
 
 export const myPlaylists = async (token: string): Promise<{ id: string; name: string }[]> => {

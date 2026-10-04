@@ -10,6 +10,8 @@ export type NowPlaying = {
     positionMs: number
     durationMs: number
     receivedAt: number
+    // Whether the playlist has a track after this one.
+    hasNext: boolean
 }
 
 // Wraps Spotify's Web Playback SDK (loaded from Spotify's CDN: its terms forbid self-hosting it).
@@ -56,6 +58,7 @@ export const usePlayer = (enabled: boolean, getToken: () => Promise<string>) => 
                     positionMs: s.position,
                     durationMs: s.duration,
                     receivedAt: Date.now(),
+                    hasNext: (s.track_window.next_tracks?.length ?? 0) > 0,
                 })
             })
             p.connect().then((ok: boolean) => console.info(`[rater] SDK connect(): ${ok}`))
@@ -86,8 +89,12 @@ export const usePlayer = (enabled: boolean, getToken: () => Promise<string>) => 
             player.current?.togglePlay()
         }, []),
         pause: useCallback(() => player.current?.pause(), []),
-        // Moves within the current track only. There is deliberately no next/previous: the song
-        // changes when it ends, or when a rating restarts the playlist.
+        // Only a rating moves on to the next track (the controls never do), and only when one exists.
+        next: useCallback(() => {
+            console.info('[rater] moving on to the next track')
+            return player.current?.nextTrack()
+        }, []),
+        // Moves within the current track only. The song changes when it ends, or when a rating moves on.
         seek: useCallback((ms: number) => {
             console.info(`[rater] seeking to ${Math.round(ms / 1000)}s`)
             return player.current?.seek(ms)

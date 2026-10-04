@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import { RATING_PLAYLISTS, SOURCE_PLAYLIST } from './config'
+import { SOURCE_PLAYLIST } from './config'
 import { skipTarget } from './seek'
-import { addItem, friendlyError, playlistTotal, removeFromPlaylist, startContext } from './spotify'
+import { rateTrack, type Stars } from './ratingJob'
+import { friendlyError, playlistTotal, startContext } from './spotify'
 import { useAuth } from './useAuth'
 import { usePlayer } from './usePlayer'
 import { useCoverBackground } from './useCoverBackground'
 import { usePosition } from './usePosition'
+import { useRatingQueue } from './useRatingQueue'
 import { Controls } from './components/Controls'
 import { LogoutIcon } from './components/icons'
 import { PlaylistHelper } from './components/PlaylistHelper'
@@ -13,7 +15,6 @@ import { Scrubber } from './components/Scrubber'
 import { StarRating } from './components/StarRating'
 import { TrackInfo } from './components/TrackInfo'
 
-type Stars = 1 | 2 | 3 | 4 | 5
 type Notice = { kind: 'info' | 'warning' | 'error'; text: string }
 
 export default function App() {
@@ -25,7 +26,8 @@ export default function App() {
     // False until the first start attempt has finished: the page shows a spinner, not a button.
     const [attempted, setAttempted] = useState(false)
     const [allRated, setAllRated] = useState(false)
-    const [busy, setBusy] = useState(false)
+    // The track just rated: its stars stay disabled until the player has moved on, so it can't be rated twice.
+    const [ratedUri, setRatedUri] = useState<string | null>(null)
     // Adds already made for a track whose removal from the source failed, so retrying a rating never files it twice.
     const filed = useRef(new Set<string>())
     const [notice, setNotice] = useState<Notice | null>(null)
@@ -68,55 +70,39 @@ export default function App() {
         start(false)
     }, [auth.status, configured, player.deviceId])
 
-    const rate = async (stars: Stars) => {
-        if (busy || !player.now) return
-        const { uri, name, artists } = player.now
-        const target = RATING_PLAYLISTS[stars]
-        console.info(`[rater] rating ${stars}: "${name}" (${uri}) -> ${target.id ? `add to "${target.name}"` : 'drop'}, then remove from source`)
-        setBusy(true)
-        setNotice(null)
-        const key = `${target.id}|${uri}`
-        let token: string
-        try {
-            token = await auth.getToken()
-            if (target.id && filed.current.has(key)) {
-                console.info(`[rater] already filed under "${target.name}", only retrying the removal`)
-            } else if (target.id) {
-                const added = await addItem(token, target.id, uri)
-                filed.current.add(key)
-                console.info(`[rater] added to "${target.name}", snapshot ${added?.snapshot_id}`)
-            }
-        } catch (e) {
-            console.error(`[rater] rating ${stars} aborted before changing anything`, e)
-            setNotice({ kind: 'error', text: `Nothing changed: ${friendlyError(e)}` })
-            setBusy(false)
-            return
-        }
-        try {
-            if (!(await removeFromPlaylist(token, SOURCE_PLAYLIST.id, { uri, name, artists }))) {
-                console.error(`[rater] "${name}" (${uri}) is still in "${SOURCE_PLAYLIST.name}" after trying to remove it`)
-                setNotice({
-                    kind: 'error',
-                    text: `${name} is still in ${SOURCE_PLAYLIST.name}: Spotify didn't remove it. ${target.id ? `It is filed under ${target.name}. ` : ''}Rate it again to retry.`,
+    const queue = useRatingQueue(
+        (request) => rateTrack(auth.getToken, filed.current, request.stars, request.track),
+        ({ total }, request) => {
+            if (total === 0) {
+                console.info(`[rater] "${SOURCE_PLAYLIST.name}" is empty, everything is rated`)
+                player.pause()
+                setAllRated(true)
+            } else if (!request.hadNext) {
+                // The rated track was the last one, so there was nothing to move on to: start again from the first.
+                auth.getToken().then(startOver).catch((e) => {
+                    console.error('[rater] rated, but could not restart the playlist', e)
+                    setNotice({ kind: 'warning', text: `Rated, but the playlist didn't restart: ${friendlyError(e)}` })
                 })
-                setBusy(false)
-                return
             }
-            filed.current.delete(key)
-            console.info(`[rater] removed from "${SOURCE_PLAYLIST.name}"`)
-        } catch (e) {
-            console.warn(`[rater] could not remove "${name}" from the source`, e)
-            setNotice({ kind: 'warning', text: `${name} was filed but not removed from the source: ${friendlyError(e)}` })
-            setBusy(false)
-            return
-        }
-        try {
-            await startOver(token)
-        } catch (e) {
-            console.error('[rater] rated, but could not restart the playlist', e)
-            setNotice({ kind: 'warning', text: `Rated, but the playlist didn't restart: ${friendlyError(e)}` })
-        }
-        setBusy(false)
+        },
+    )
+
+    // Let the stars work again once the player has moved off the rated track, or if saving it failed (so it can be
+    // retried). Not merely when saving is done: the last track stays on screen until the playlist restarts.
+    useEffect(() => {
+        if (ratedUri && (player.now?.uri !== ratedUri || queue.failures.length > 0)) setRatedUri(null)
+    }, [ratedUri, player.now?.uri, queue.failures.length])
+
+    // A rating moves on to the next song at once and is saved in the background (see useRatingQueue).
+    // There is no separate "restart from the first song": the rated track is still first in the source until its
+    // removal lands, so restarting would just play it again.
+    const rate = (stars: Stars) => {
+        const now = player.now
+        if (!now || now.uri === ratedUri) return
+        console.info(`[rater] rating ${stars}: "${now.name}", moving on`)
+        setRatedUri(now.uri)
+        queue.enqueue({ stars, track: { uri: now.uri, name: now.name, artists: now.artists }, hadNext: now.hasNext })
+        if (now.hasNext) player.next()
     }
 
     const skip = (direction: -1 | 1) => {
@@ -150,7 +136,7 @@ export default function App() {
             <div className="done">
                 <div className="done-title">All rated</div>
                 <p className="muted">Nothing left in {SOURCE_PLAYLIST.name}.</p>
-                <button className="button" disabled={busy} onClick={() => start(true)}>Check again</button>
+                <button className="button" disabled={queue.pending > 0} onClick={() => start(true)}>Check again</button>
             </div>
         )
         if (!attempted) return <div className="spinner" role="status" aria-label="Starting" />
@@ -166,6 +152,15 @@ export default function App() {
         <>
             {auth.error && <div className="notice error">{auth.error}</div>}
             {player.error && <div className="notice error">{player.error}</div>}
+            {queue.failures.length > 0 && (
+                <div className="notice error">
+                    {queue.failures.map((f, i) => <div key={i}>{f.message}</div>)}
+                    <div className="actions">
+                        <button className="button" onClick={queue.retry}>Retry</button>
+                        <button className="button" onClick={queue.dismiss}>Dismiss</button>
+                    </div>
+                </div>
+            )}
             {notice && <div className={`notice ${notice.kind}`}>{notice.text}</div>}
         </>
     )
@@ -185,7 +180,7 @@ export default function App() {
                 {logout}
                 <header className="top"><TrackInfo track={now} /></header>
                 <div className="middle">
-                    <StarRating disabled={busy || !now} onRate={rate} />
+                    <StarRating disabled={!now || now.uri === ratedUri} onRate={rate} />
                     <Controls paused={now?.paused ?? true} positionMs={position} durationMs={now?.durationMs ?? 0}
                         onToggle={player.toggle} onSkip={skip} />
                     {notices}
