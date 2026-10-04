@@ -6,11 +6,12 @@ import { useAuth } from './useAuth'
 import { usePlayer } from './usePlayer'
 import { usePosition } from './usePosition'
 import { Controls } from './components/Controls'
-import { Cover } from './components/Cover'
+import { Backdrop } from './components/Backdrop'
 import { LogoutIcon } from './components/icons'
 import { PlaylistHelper } from './components/PlaylistHelper'
 import { Scrubber } from './components/Scrubber'
 import { StarRating } from './components/StarRating'
+import { TrackInfo } from './components/TrackInfo'
 
 type Stars = 1 | 2 | 3 | 4 | 5
 type Notice = { kind: 'info' | 'warning' | 'error'; text: string }
@@ -159,31 +160,50 @@ export default function App() {
                 {player.autoplayBlocked ? 'Tap to play' : 'Start rating'}
             </button>
         )
+        return null
+    }
+
+    const notices = (
+        <>
+            {auth.error && <div className="notice error">{auth.error}</div>}
+            {player.error && <div className="notice error">{player.error}</div>}
+            {notice && <div className={`notice ${notice.kind}`}>{notice.text}</div>}
+        </>
+    )
+    const logout = auth.status === 'in' && (
+        <button className="logout" aria-label="Log out" title="Log out" onClick={auth.signOut}>
+            <LogoutIcon />
+        </button>
+    )
+
+    // The player fills the page: track info on top, rating and controls in the middle, scrubber along the bottom.
+    const showPlayer = auth.status === 'in' && configured && attempted && playing && !player.autoplayBlocked
+    if (showPlayer) {
         const now = player.now
         return (
-            <>
-                <Cover track={now}>
+            <main className="stage player">
+                <Backdrop image={now?.image} />
+                {logout}
+                <header className="top"><TrackInfo track={now} /></header>
+                <div className="middle">
+                    <StarRating disabled={busy || !now} onRate={rate} />
+                    <Controls paused={now?.paused ?? true} positionMs={position} durationMs={now?.durationMs ?? 0}
+                        onToggle={player.toggle} onSkip={skip} />
+                    {notices}
+                </div>
+                <footer className="bottom">
                     <Scrubber positionMs={position} durationMs={now?.durationMs ?? 0} onSeek={player.seek} />
-                </Cover>
-                <StarRating disabled={busy || !now} onRate={rate} />
-                <Controls paused={now?.paused ?? true} positionMs={position} durationMs={now?.durationMs ?? 0}
-                    onToggle={player.toggle} onSkip={skip} />
-            </>
+                </footer>
+            </main>
         )
     }
 
     return (
         <main className="stage">
-            {auth.status === 'in' && (
-                <button className="logout" aria-label="Log out" title="Log out" onClick={auth.signOut}>
-                    <LogoutIcon />
-                </button>
-            )}
+            {logout}
             <section className="column">
                 {body()}
-                {auth.error && <div className="notice error">{auth.error}</div>}
-                {player.error && <div className="notice error">{player.error}</div>}
-                {notice && <div className={`notice ${notice.kind}`}>{notice.text}</div>}
+                {notices}
             </section>
         </main>
     )
