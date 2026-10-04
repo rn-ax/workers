@@ -16,13 +16,13 @@ export function PlaylistHelper({ getToken }: { getToken: () => Promise<string> }
         }
     }
     return (
-        <div className="ui segment">
-            <div className="ui header">No source playlist configured</div>
+        <div className="helper">
+            <div className="done-title">No source playlist configured</div>
             <p>Set <code>SOURCE_PLAYLIST</code> and <code>RATING_PLAYLISTS</code> in <code>rater/src/config.ts</code>.</p>
-            <button className="ui button" onClick={load}>List my playlists</button>
-            {error && <div className="ui negative message">{error}</div>}
+            <button className="primary" onClick={load}>List my playlists</button>
+            {error && <div className="notice error">{error}</div>}
             {lists && (
-                <table className="ui very basic compact table">
+                <table className="plain">
                     <tbody>
                         {lists.map((p) => <tr key={p.id}><td>{p.name}</td><td><code>{p.id}</code></td></tr>)}
                     </tbody>

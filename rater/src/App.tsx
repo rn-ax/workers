@@ -1,34 +1,52 @@
 import { useEffect, useRef, useState } from 'react'
 import { RATING_PLAYLISTS, SOURCE_PLAYLIST } from './config'
-import { addItem, friendlyError, removeItem, startContext } from './spotify'
+import { skipTarget } from './seek'
+import { addItem, friendlyError, playlistTotal, removeItem, startContext } from './spotify'
 import { useAuth } from './useAuth'
 import { usePlayer } from './usePlayer'
-import { NowPlaying } from './components/NowPlaying'
+import { usePosition } from './usePosition'
+import { Controls } from './components/Controls'
+import { Cover } from './components/Cover'
+import { LogoutIcon } from './components/icons'
 import { PlaylistHelper } from './components/PlaylistHelper'
-import { RatingBar } from './components/RatingBar'
+import { Scrubber } from './components/Scrubber'
+import { StarRating } from './components/StarRating'
 
 type Stars = 1 | 2 | 3 | 4 | 5
-type Notice = { kind: 'info' | 'warning' | 'negative'; text: string }
+type Notice = { kind: 'info' | 'warning' | 'error'; text: string }
 
 export default function App() {
     const auth = useAuth()
     const configured = SOURCE_PLAYLIST.id !== ''
     const player = usePlayer(auth.status === 'in' && configured, auth.getToken)
+    const position = usePosition(player.now)
     const [started, setStarted] = useState(false)
+    const [allRated, setAllRated] = useState(false)
     const [busy, setBusy] = useState(false)
     const [notice, setNotice] = useState<Notice | null>(null)
 
+    // (Re)start the source playlist from its first track, or notice that nothing is left to rate.
+    const startOver = async (token: string) => {
+        if ((await playlistTotal(token, SOURCE_PLAYLIST.id)) === 0) {
+            console.info(`[rater] "${SOURCE_PLAYLIST.name}" is empty, everything is rated`)
+            player.pause()
+            setAllRated(true)
+            return
+        }
+        console.info(`[rater] starting "${SOURCE_PLAYLIST.name}" from the first track on device ${player.deviceId}`)
+        await startContext(token, player.deviceId, SOURCE_PLAYLIST.id)
+        setAllRated(false)
+    }
+
     const start = async () => {
-        console.info(`[rater] starting playback of "${SOURCE_PLAYLIST.name}" on device ${player.deviceId}`)
         player.activate()
         try {
-            await startContext(await auth.getToken(), player.deviceId, SOURCE_PLAYLIST.id)
+            await startOver(await auth.getToken())
             setStarted(true)
             setNotice(null)
-            console.info('[rater] playback started')
         } catch (e) {
             console.error('[rater] could not start playback', e)
-            setNotice({ kind: 'negative', text: friendlyError(e) })
+            setNotice({ kind: 'error', text: friendlyError(e) })
         }
     }
 
@@ -48,69 +66,94 @@ export default function App() {
             }
         } catch (e) {
             console.error(`[rater] rating ${stars} aborted before changing anything`, e)
-            setNotice({ kind: 'negative', text: `Nothing changed: ${friendlyError(e)}` })
+            setNotice({ kind: 'error', text: `Nothing changed: ${friendlyError(e)}` })
             setBusy(false)
             return
         }
         try {
             const removed = await removeItem(token, SOURCE_PLAYLIST.id, uri)
             console.info(`[rater] removed from "${SOURCE_PLAYLIST.name}", snapshot ${removed?.snapshot_id}`)
-            setNotice({ kind: 'info', text: `${name}: ${target.id ? `filed under ${target.name}` : 'dropped'}.` })
         } catch (e) {
             console.warn(`[rater] filed "${name}" but could not remove it from the source`, e)
             setNotice({ kind: 'warning', text: `${name} was filed but not removed from the source: ${friendlyError(e)}` })
+            setBusy(false)
+            return
         }
-        player.next()
+        try {
+            await startOver(token)
+        } catch (e) {
+            console.error('[rater] rated, but could not restart the playlist', e)
+            setNotice({ kind: 'warning', text: `Rated, but the playlist didn't restart: ${friendlyError(e)}` })
+        }
         setBusy(false)
     }
 
-    // Keys 1-5 rate, space toggles play/pause.
-    const latest = useRef({ rate, toggle: player.toggle })
-    latest.current = { rate, toggle: player.toggle }
+    const skip = (direction: -1 | 1) => {
+        if (!player.now) return
+        const to = skipTarget(position, player.now.durationMs, direction)
+        if (to !== null) player.seek(to)
+    }
+
+    // Keys: 1-5 rate, space plays/pauses, left/right skip 30 seconds.
+    const latest = useRef({ rate, skip, toggle: player.toggle })
+    latest.current = { rate, skip, toggle: player.toggle }
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
-            if (e.metaKey || e.ctrlKey || e.altKey || (e.target as HTMLElement).tagName === 'BUTTON' && e.key === ' ') return
+            const tag = (e.target as HTMLElement).tagName
+            if (e.metaKey || e.ctrlKey || e.altKey || tag === 'INPUT') return
             if (e.key >= '1' && e.key <= '5') latest.current.rate(Number(e.key) as Stars)
-            else if (e.key === ' ') { e.preventDefault(); latest.current.toggle() }
+            else if (e.key === ' ' && tag !== 'BUTTON') { e.preventDefault(); latest.current.toggle() }
+            else if (e.key === 'ArrowLeft') latest.current.skip(-1)
+            else if (e.key === 'ArrowRight') latest.current.skip(1)
         }
         window.addEventListener('keydown', onKey)
         return () => window.removeEventListener('keydown', onKey)
     }, [])
 
-    if (auth.status === 'popup') return <p>Finishing login… you can close this window.</p>
-    if (auth.status === 'loading') return <div className="ui active centered inline loader" />
+    const playing = started && !allRated
+    const body = () => {
+        if (auth.status === 'popup') return <p className="muted">Finishing login… you can close this window.</p>
+        if (auth.status === 'loading') return <div className="spinner" role="status" aria-label="Loading" />
+        if (auth.status === 'out') return <button className="primary" onClick={auth.signIn}>Log in with Spotify</button>
+        if (!configured) return <PlaylistHelper getToken={auth.getToken} />
+        if (allRated) return (
+            <div className="done">
+                <div className="done-title">All rated</div>
+                <p className="muted">Nothing left in {SOURCE_PLAYLIST.name}.</p>
+                <button className="primary" disabled={busy} onClick={start}>Check again</button>
+            </div>
+        )
+        if (!playing) return (
+            <button className="primary" disabled={!player.deviceId} onClick={start}>
+                {player.deviceId ? 'Start rating' : 'Connecting player…'}
+            </button>
+        )
+        const now = player.now
+        return (
+            <>
+                <Cover track={now}>
+                    <Scrubber positionMs={position} durationMs={now?.durationMs ?? 0} onSeek={player.seek} />
+                </Cover>
+                <StarRating disabled={busy || !now} onRate={rate} />
+                <Controls paused={now?.paused ?? true} positionMs={position} durationMs={now?.durationMs ?? 0}
+                    onToggle={player.toggle} onSkip={skip} />
+            </>
+        )
+    }
 
     return (
-        <div>
-            <h2 className="ui header">Rater</h2>
-            {auth.error && <div className="ui negative message">{auth.error}</div>}
-
-            {auth.status === 'out' && (
-                <button className="ui primary button" onClick={auth.signIn}>Log in with Spotify</button>
+        <main className="stage">
+            {auth.status === 'in' && (
+                <button className="logout" aria-label="Log out" title="Log out" onClick={auth.signOut}>
+                    <LogoutIcon />
+                </button>
             )}
-
-            {auth.status === 'in' && !configured && <PlaylistHelper getToken={auth.getToken} />}
-
-            {auth.status === 'in' && configured && (
-                <>
-                    <p>Rating tracks from <b>{SOURCE_PLAYLIST.name}</b>.</p>
-                    {player.error && <div className="ui negative message">{player.error}</div>}
-                    {!started ? (
-                        <button className="ui primary button" disabled={!player.deviceId} onClick={start}>
-                            {player.deviceId ? 'Start' : 'Connecting player…'}
-                        </button>
-                    ) : (
-                        <>
-                            <NowPlaying track={player.now} onToggle={player.toggle} />
-                            <RatingBar disabled={busy || !player.now} onRate={rate} />
-                        </>
-                    )}
-                    {notice && <div className={`ui ${notice.kind} message`}>{notice.text}</div>}
-                    <div style={{ marginTop: 24 }}>
-                        <button className="ui basic tiny button" onClick={auth.signOut}>Log out</button>
-                    </div>
-                </>
-            )}
-        </div>
+            <section className="column">
+                {body()}
+                {auth.error && <div className="notice error">{auth.error}</div>}
+                {player.error && <div className="notice error">{player.error}</div>}
+                {notice && <div className={`notice ${notice.kind}`}>{notice.text}</div>}
+            </section>
+        </main>
     )
 }

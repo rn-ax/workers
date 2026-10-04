@@ -32,11 +32,15 @@ export const api = async (token: string, path: string, init?: RequestInit) => {
     return text ? JSON.parse(text) : null
 }
 
+// Always starts the playlist from its first track.
 export const startContext = (token: string, deviceId: string, playlistId: string) =>
     api(token, `/me/player/play?device_id=${deviceId}`, {
         method: 'PUT',
-        body: JSON.stringify({ context_uri: `spotify:playlist:${playlistId}` }),
+        body: JSON.stringify({ context_uri: `spotify:playlist:${playlistId}`, offset: { position: 0 } }),
     })
+
+export const playlistTotal = async (token: string, playlistId: string): Promise<number> =>
+    (await api(token, `/playlists/${playlistId}/items?limit=1&fields=total`)).total
 
 export const addItem = (token: string, playlistId: string, uri: string) =>
     api(token, `/playlists/${playlistId}/items`, { method: 'POST', body: JSON.stringify({ uris: [uri] }) })
