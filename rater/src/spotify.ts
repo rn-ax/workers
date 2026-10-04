@@ -32,12 +32,15 @@ export const api = async (token: string, path: string, init?: RequestInit) => {
     return text ? JSON.parse(text) : null
 }
 
-// Always starts the playlist from its first track.
-export const startContext = (token: string, deviceId: string, playlistId: string) =>
-    api(token, `/me/player/play?device_id=${deviceId}`, {
+// Always starts the playlist from its first track. The player is made the active device first: Spotify refuses a
+// play command ("Restriction violated") for a device that isn't the active one.
+export const startContext = async (token: string, deviceId: string, playlistId: string) => {
+    await api(token, '/me/player', { method: 'PUT', body: JSON.stringify({ device_ids: [deviceId], play: false }) })
+    return api(token, `/me/player/play?device_id=${deviceId}`, {
         method: 'PUT',
         body: JSON.stringify({ context_uri: `spotify:playlist:${playlistId}`, offset: { position: 0 } }),
     })
+}
 
 export const playlistTotal = async (token: string, playlistId: string): Promise<number> =>
     (await api(token, `/playlists/${playlistId}/items?limit=1&fields=total`)).total
