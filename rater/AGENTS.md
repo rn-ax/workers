@@ -2,6 +2,10 @@
 
 A static page (Vite + React) served as Worker assets at `rater.rn.ax`. Spotify login is PKCE in the browser; there is no backend. See the repo `README.md` for deploys.
 
+## Local dev
+
+Run the dev server at `http://127.0.0.1:4417` (`npx vite --host 127.0.0.1 --port 4417 --strictPort`). Spotify only redirects back to registered URIs, and this one and `https://rater.rn.ax` are the only ones registered for the app, so login fails on any other host or port (including `localhost` and Vite's default 5173).
+
 ## UI conventions
 
 - **Text buttons** (log in, start/tap to play, check again, list playlists) all use the one `.button` class: white text, a thin white outline, no background fill. Don't add a filled or gradient variant; extend `.button` instead.
