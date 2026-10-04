@@ -1,0 +1,16 @@
+@import url('https://cdn.jsdelivr.net/npm/fomantic-ui-css@2.9.4/semantic.min.css');
+
+body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+#root {
+    padding: 24px;
+    max-width: 760px;
+}
+
+pre {
+    white-space: pre-wrap;
+    word-break: break-all;
+}
