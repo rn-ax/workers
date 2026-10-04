@@ -3,3 +3,5 @@ _extends: poppycock
 repository:
   name: workers
   description: Cloudflare Workers for the rn.ax suite
+  # The shared poppycock settings turn issues off for every repo; this one tracks ideas and shelved work there.
+  has_issues: true
