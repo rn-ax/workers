@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-export type NowPlaying = { uri: string; name: string; artists: string; image: string; paused: boolean }
+export type NowPlaying = {
+    uri: string
+    name: string
+    artists: string
+    image: string
+    paused: boolean
+    // Where the track was at `receivedAt`; the UI interpolates from there while playing.
+    positionMs: number
+    durationMs: number
+    receivedAt: number
+}
 
 // Wraps Spotify's Web Playback SDK (loaded from Spotify's CDN: its terms forbid self-hosting it).
 export const usePlayer = (enabled: boolean, getToken: () => Promise<string>) => {
@@ -37,6 +47,9 @@ export const usePlayer = (enabled: boolean, getToken: () => Promise<string>) => 
                     artists: t.artists.map((a: any) => a.name).join(', '),
                     image: t.album.images[0]?.url ?? '',
                     paused: s.paused,
+                    positionMs: s.position,
+                    durationMs: s.duration,
+                    receivedAt: Date.now(),
                 })
             })
             p.connect().then((ok: boolean) => console.info(`[rater] SDK connect(): ${ok}`))
@@ -62,9 +75,12 @@ export const usePlayer = (enabled: boolean, getToken: () => Promise<string>) => 
             console.info('[rater] toggle play/pause')
             player.current?.togglePlay()
         }, []),
-        next: useCallback(() => {
-            console.info('[rater] skipping to the next track')
-            player.current?.nextTrack()
+        pause: useCallback(() => player.current?.pause(), []),
+        // Moves within the current track only. There is deliberately no next/previous: the song
+        // changes when it ends, or when a rating restarts the playlist.
+        seek: useCallback((ms: number) => {
+            console.info(`[rater] seeking to ${Math.round(ms / 1000)}s`)
+            return player.current?.seek(ms)
         }, []),
     }
 }
