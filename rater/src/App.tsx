@@ -70,7 +70,7 @@ export default function App() {
 
     const rate = async (stars: Stars) => {
         if (busy || !player.now) return
-        const { uri, name } = player.now
+        const { uri, name, artists } = player.now
         const target = RATING_PLAYLISTS[stars]
         console.info(`[rater] rating ${stars}: "${name}" (${uri}) -> ${target.id ? `add to "${target.name}"` : 'drop'}, then remove from source`)
         setBusy(true)
@@ -93,7 +93,7 @@ export default function App() {
             return
         }
         try {
-            if (!(await removeFromPlaylist(token, SOURCE_PLAYLIST.id, uri))) {
+            if (!(await removeFromPlaylist(token, SOURCE_PLAYLIST.id, { uri, name, artists }))) {
                 console.error(`[rater] "${name}" (${uri}) is still in "${SOURCE_PLAYLIST.name}" after trying to remove it`)
                 setNotice({
                     kind: 'error',
