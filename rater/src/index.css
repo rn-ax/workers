@@ -129,15 +129,18 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent-2); 
 .star:disabled { opacity: 0.5; }
 
 /* Buttons and messages */
-.primary {
+.button {
     padding: 14px 20px;
     border-radius: 14px;
     font-weight: 600;
     color: #fff;
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
-    box-shadow: 0 10px 26px rgba(90, 120, 255, 0.3);
+    background: none;
+    border: 1.5px solid #fff;
+    transition: background 0.15s;
 }
-.primary:disabled { opacity: 0.5; box-shadow: none; }
+.button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.1); }
+.button:disabled { opacity: 0.4; }
+
 .logout {
     position: fixed;
     top: 16px;

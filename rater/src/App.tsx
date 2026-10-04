@@ -21,6 +21,8 @@ export default function App() {
     const player = usePlayer(auth.status === 'in' && configured, auth.getToken)
     const position = usePosition(player.now)
     const [started, setStarted] = useState(false)
+    // False until the first start attempt has finished: the page shows a spinner, not a button.
+    const [attempted, setAttempted] = useState(false)
     const [allRated, setAllRated] = useState(false)
     const [busy, setBusy] = useState(false)
     // Adds already made for a track whose removal from the source failed, so retrying a rating never files it twice.
@@ -40,8 +42,9 @@ export default function App() {
         setAllRated(false)
     }
 
-    const start = async () => {
-        player.activate()
+    // `viaClick` is false for the automatic start on page load, which most browsers may refuse to play audio for.
+    const start = async (viaClick: boolean) => {
+        if (viaClick) player.activate()
         try {
             await startOver(await auth.getToken())
             setStarted(true)
@@ -49,8 +52,20 @@ export default function App() {
         } catch (e) {
             console.error('[rater] could not start playback', e)
             setNotice({ kind: 'error', text: friendlyError(e) })
+        } finally {
+            setAttempted(true)
         }
     }
+
+    // Start by itself as soon as the player is ready. If the browser blocks autoplay, `autoplayBlocked`
+    // brings the button back so one tap unlocks audio.
+    const autoStarted = useRef(false)
+    useEffect(() => {
+        if (auth.status !== 'in' || !configured || !player.deviceId || autoStarted.current) return
+        autoStarted.current = true
+        console.info('[rater] starting automatically')
+        start(false)
+    }, [auth.status, configured, player.deviceId])
 
     const rate = async (stars: Stars) => {
         if (busy || !player.now) return
@@ -129,18 +144,19 @@ export default function App() {
     const body = () => {
         if (auth.status === 'popup') return <p className="muted">Finishing login… you can close this window.</p>
         if (auth.status === 'loading') return <div className="spinner" role="status" aria-label="Loading" />
-        if (auth.status === 'out') return <button className="primary" onClick={auth.signIn}>Log in with Spotify</button>
+        if (auth.status === 'out') return <button className="button" onClick={auth.signIn}>Log in with Spotify</button>
         if (!configured) return <PlaylistHelper getToken={auth.getToken} />
         if (allRated) return (
             <div className="done">
                 <div className="done-title">All rated</div>
                 <p className="muted">Nothing left in {SOURCE_PLAYLIST.name}.</p>
-                <button className="primary" disabled={busy} onClick={start}>Check again</button>
+                <button className="button" disabled={busy} onClick={() => start(true)}>Check again</button>
             </div>
         )
-        if (!playing) return (
-            <button className="primary" disabled={!player.deviceId} onClick={start}>
-                {player.deviceId ? 'Start rating' : 'Connecting player…'}
+        if (!attempted) return <div className="spinner" role="status" aria-label="Starting" />
+        if (!playing || player.autoplayBlocked) return (
+            <button className="button" onClick={() => start(true)}>
+                {player.autoplayBlocked ? 'Tap to play' : 'Start rating'}
             </button>
         )
         const now = player.now
