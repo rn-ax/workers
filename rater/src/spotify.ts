@@ -32,11 +32,11 @@ export const api = async (token: string, path: string, init?: RequestInit) => {
     return text ? JSON.parse(text) : null
 }
 
-// Always starts the playlist from its first track.
+// Spotify refuses a play command that carries an `offset` (403 "Restriction violated"), so none is sent.
 export const startContext = (token: string, deviceId: string, playlistId: string) =>
     api(token, `/me/player/play?device_id=${deviceId}`, {
         method: 'PUT',
-        body: JSON.stringify({ context_uri: `spotify:playlist:${playlistId}`, offset: { position: 0 } }),
+        body: JSON.stringify({ context_uri: `spotify:playlist:${playlistId}` }),
     })
 
 export const playlistTotal = async (token: string, playlistId: string): Promise<number> =>
