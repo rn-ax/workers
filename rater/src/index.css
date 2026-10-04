@@ -4,6 +4,7 @@
     --bg-2: #171233;
     --bg-3: #0c1a2b;
     --line: rgba(255, 255, 255, 0.09);
+    --glow: drop-shadow(0 0 4px rgba(0, 0, 0, 1)) drop-shadow(0 0 10px rgba(0, 0, 0, 0.85)) drop-shadow(0 0 22px rgba(0, 0, 0, 0.6));
     --text: #eceef6;
     --muted: #8b90a7;
     --accent: #8b7cff;
@@ -29,12 +30,14 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 button:disabled { cursor: default; }
 button:focus-visible, input:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 3px; }
 
+/* Screens without a track (login, loading, all rated): one centred column */
 .stage {
     min-height: 100dvh;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 24px 16px;
+    position: relative;
 }
 
 .column {
@@ -42,42 +45,74 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent-2); 
     display: flex;
     flex-direction: column;
     gap: 22px;
+    position: relative;
+    z-index: 1;
 }
 
 .muted { color: var(--muted); margin: 0; text-align: center; }
 
-/* Cover, with the track info overlaid along its bottom edge */
-.cover {
-    position: relative;
-    aspect-ratio: 1;
-    width: 100%;
-    border-radius: 18px;
-    overflow: hidden;
-    background: linear-gradient(135deg, #262042, #14233a);
-    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
-}
-.cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.cover-caption {
+/* The cover as the page background */
+.backdrop { position: fixed; inset: 0; z-index: 0; overflow: hidden; background: var(--bg-1); }
+.backdrop img { width: 100%; height: 100%; object-fit: cover; display: block; animation: fade-in 0.8s ease; }
+.backdrop-dim {
     position: absolute;
-    inset: auto 0 0 0;
-    padding: 48px 16px 26px;
-    background: linear-gradient(to top, rgba(6, 7, 14, 0.88) 0%, rgba(6, 7, 14, 0.55) 55%, transparent 100%);
-    text-align: left;
+    inset: 0;
+    background: linear-gradient(to bottom, rgba(6, 7, 14, 0.62) 0%, rgba(6, 7, 14, 0.25) 35%, rgba(6, 7, 14, 0.25) 65%, rgba(6, 7, 14, 0.7) 100%);
 }
-.track-title { font-size: 1.1rem; font-weight: 650; line-height: 1.25; overflow-wrap: anywhere; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6); }
-.track-artist { color: rgba(236, 238, 246, 0.78); font-size: 0.9rem; min-height: 1.2em; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6); }
+@keyframes fade-in { from { opacity: 0; } }
 
-/* Scrubber: a thin progress bar along the cover's bottom edge, with a taller hit area */
+/* Player screen: three regions filling the page */
+.stage.player { flex-direction: column; align-items: stretch; justify-content: space-between; padding: 0; }
+.stage.player .top { position: relative; z-index: 1; padding: max(24px, env(safe-area-inset-top)) 68px 0; }
+.stage.player .middle {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    width: min(100%, 360px);
+    margin: 0 auto;
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    gap: 28px;
+}
+.stage.player .bottom { position: relative; z-index: 1; }
+
+/* Track info */
+.track-info { text-align: center; }
+.track-title { font-size: 1.25rem; font-weight: 650; line-height: 1.25; overflow-wrap: anywhere; text-shadow: 0 0 4px rgba(0, 0, 0, 1), 0 0 12px rgba(0, 0, 0, 0.85), 0 0 26px rgba(0, 0, 0, 0.6); }
+.track-artist { color: rgba(236, 238, 246, 0.9); font-size: 0.95rem; min-height: 1.2em; margin-top: 2px; text-shadow: 0 0 4px rgba(0, 0, 0, 1), 0 0 12px rgba(0, 0, 0, 0.85), 0 0 26px rgba(0, 0, 0, 0.6); }
+
+/* Every control floats on a soft dark glow that follows its shape, instead of a filled background */
+.controls .skip, .controls .play, .star, .logout {
+    filter: var(--glow);
+    transition: transform 0.15s, color 0.12s, opacity 0.15s;
+}
+.controls .skip:hover:not(:disabled), .controls .play:hover, .star:hover:not(:disabled), .logout:hover { transform: scale(1.1); }
+
+/* Controls */
+.controls { display: flex; align-items: center; justify-content: center; gap: 22px; }
+.controls .skip { width: 52px; height: 52px; padding: 8px; color: #fff; }
+.controls .skip:disabled { opacity: 0.35; }
+.controls .play { width: 76px; height: 76px; padding: 12px; color: #fff; }
+
+/* Stars */
+.stars { display: flex; justify-content: center; gap: 8px; }
+.star { width: 46px; height: 46px; padding: 6px; color: rgba(255, 255, 255, 0.7); }
+.star.lit { color: var(--star); transform: scale(1.08); }
+.star:disabled { opacity: 0.5; }
+
+/* Scrubber: just a thin bar flush against the bottom of the page. The padding above it is an invisible
+   hit area; there is no thumb (it would be half off-screen), the fill shows the position. */
 .scrubber {
     --fill: 0%;
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 1;
+    display: block;
+    box-sizing: content-box;
     width: 100%;
-    height: 22px;
+    height: 4px;
     margin: 0;
+    padding: 18px 0 0;
     background: none;
     cursor: pointer;
     -webkit-appearance: none;
@@ -85,50 +120,15 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent-2); 
 }
 .scrubber::-webkit-slider-runnable-track {
     height: 4px;
-    background: linear-gradient(to right, var(--accent-2) var(--fill), rgba(255, 255, 255, 0.28) var(--fill));
+    background: linear-gradient(to right, #fff var(--fill), rgba(255, 255, 255, 0.3) var(--fill));
 }
-.scrubber::-moz-range-track { height: 4px; background: rgba(255, 255, 255, 0.28); }
-.scrubber::-moz-range-progress { height: 4px; background: var(--accent-2); }
-.scrubber::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 12px; height: 12px; margin-top: -4px; border-radius: 50%;
-    background: #fff;
-    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
-    opacity: 0;
-    transition: opacity 0.15s;
-}
-.scrubber::-moz-range-thumb {
-    width: 12px; height: 12px; border: 0; border-radius: 50%;
-    background: #fff;
-    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
-    opacity: 0;
-    transition: opacity 0.15s;
-}
-.cover:hover .scrubber::-webkit-slider-thumb, .scrubber:active::-webkit-slider-thumb, .scrubber:focus-visible::-webkit-slider-thumb { opacity: 1; }
-.cover:hover .scrubber::-moz-range-thumb, .scrubber:active::-moz-range-thumb, .scrubber:focus-visible::-moz-range-thumb { opacity: 1; }
+.scrubber::-moz-range-track { height: 4px; background: rgba(255, 255, 255, 0.3); }
+.scrubber::-moz-range-progress { height: 4px; background: #fff; }
+.scrubber::-webkit-slider-thumb { -webkit-appearance: none; width: 1px; height: 4px; background: transparent; }
+.scrubber::-moz-range-thumb { width: 1px; height: 4px; border: 0; background: transparent; }
 .scrubber:focus-visible { outline-offset: -2px; }
 
-/* Controls */
-.controls { display: flex; align-items: center; justify-content: center; gap: 22px; }
-.controls .skip { width: 44px; height: 44px; color: var(--text); opacity: 0.85; transition: opacity 0.15s, transform 0.15s; }
-.controls .skip:hover:not(:disabled) { opacity: 1; transform: scale(1.08); }
-.controls .skip:disabled { opacity: 0.25; }
-.controls .play {
-    width: 68px; height: 68px; padding: 15px; border-radius: 50%;
-    color: #0b0d16;
-    background: linear-gradient(135deg, #fff, #cfd3ff);
-    box-shadow: 0 10px 26px rgba(139, 124, 255, 0.35);
-    transition: transform 0.15s;
-}
-.controls .play:hover { transform: scale(1.06); }
-
-/* Stars */
-.stars { display: flex; justify-content: center; gap: 6px; }
-.star { width: 44px; height: 44px; padding: 6px; color: rgba(255, 255, 255, 0.2); transition: color 0.12s, transform 0.12s; }
-.star.lit { color: var(--star); transform: scale(1.08); }
-.star:disabled { opacity: 0.5; }
-
-/* Buttons and messages */
+/* Text buttons */
 .button {
     padding: 14px 20px;
     border-radius: 14px;
@@ -145,19 +145,28 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent-2); 
     position: fixed;
     top: 16px;
     right: 16px;
-    width: 40px;
-    height: 40px;
+    z-index: 2;
+    width: 44px;
+    height: 44px;
     padding: 9px;
-    border-radius: 50%;
-    color: var(--muted);
-    transition: color 0.15s, background 0.15s;
+    color: #fff;
 }
-.logout:hover { color: var(--text); background: rgba(255, 255, 255, 0.08); }
 
-.notice { padding: 10px 14px; border-radius: 12px; font-size: 0.85rem; line-height: 1.4; overflow-wrap: anywhere; border: 1px solid; }
-.notice.info { color: var(--muted); border-color: var(--line); background: rgba(255, 255, 255, 0.03); }
-.notice.warning { color: var(--warning); border-color: rgba(255, 180, 84, 0.35); background: rgba(255, 180, 84, 0.07); }
-.notice.error { color: var(--error); border-color: rgba(255, 107, 122, 0.35); background: rgba(255, 107, 122, 0.07); }
+/* Messages */
+.notice {
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+    border: 1px solid;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+.notice.info { color: rgba(236, 238, 246, 0.85); border-color: var(--line); }
+.notice.warning { color: var(--warning); border-color: rgba(255, 180, 84, 0.35); }
+.notice.error { color: var(--error); border-color: rgba(255, 107, 122, 0.35); }
 
 .done { display: flex; flex-direction: column; gap: 14px; align-items: stretch; text-align: center; }
 .done-title { font-size: 1.3rem; font-weight: 650; }
