@@ -19,7 +19,7 @@ export function PlaylistHelper({ getToken }: { getToken: () => Promise<string> }
         <div className="helper">
             <div className="done-title">No source playlist configured</div>
             <p>Set <code>SOURCE_PLAYLIST</code> and <code>RATING_PLAYLISTS</code> in <code>rater/src/config.ts</code>.</p>
-            <button className="primary" onClick={load}>List my playlists</button>
+            <button className="button" onClick={load}>List my playlists</button>
             {error && <div className="notice error">{error}</div>}
             {lists && (
                 <table className="plain">

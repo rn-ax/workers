@@ -129,18 +129,18 @@ export default function App() {
     const body = () => {
         if (auth.status === 'popup') return <p className="muted">Finishing login… you can close this window.</p>
         if (auth.status === 'loading') return <div className="spinner" role="status" aria-label="Loading" />
-        if (auth.status === 'out') return <button className="primary" onClick={auth.signIn}>Log in with Spotify</button>
+        if (auth.status === 'out') return <button className="button" onClick={auth.signIn}>Log in with Spotify</button>
         if (!configured) return <PlaylistHelper getToken={auth.getToken} />
         if (allRated) return (
             <div className="done">
                 <div className="done-title">All rated</div>
                 <p className="muted">Nothing left in {SOURCE_PLAYLIST.name}.</p>
-                <button className="primary" disabled={busy} onClick={() => start(true)}>Check again</button>
+                <button className="button" disabled={busy} onClick={() => start(true)}>Check again</button>
             </div>
         )
         if (!attempted) return <div className="spinner" role="status" aria-label="Starting" />
         if (!playing || player.autoplayBlocked) return (
-            <button className="primary" onClick={() => start(true)}>
+            <button className="button" onClick={() => start(true)}>
                 {player.autoplayBlocked ? 'Tap to play' : 'Start rating'}
             </button>
         )
