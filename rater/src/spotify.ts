@@ -53,20 +53,48 @@ export const removeItem = (token: string, playlistId: string, uri: string) =>
 const originalUriOfCurrentTrack = async (token: string): Promise<string | null> =>
     (await api(token, '/me/player/currently-playing?market=from_token'))?.item?.linked_from?.uri ?? null
 
+export type TrackRef = { uri: string; name: string; artists: string }
+
+// What the playlist itself stores for a track, found by title and artist among its first entries (the
+// player always works from the front of the list). Also logs the head of the list, to show what Spotify holds.
+const storedUrisOf = async (token: string, playlistId: string, track: TrackRef): Promise<string[]> => {
+    const page = await api(token, `/playlists/${playlistId}/items?limit=50&fields=items(item(uri,name,artists(name)))`)
+    const entries: { uri: string; name: string; artists: string[] }[] = (page?.items ?? [])
+        .filter((e: any) => e.item)
+        .map((e: any) => ({ uri: e.item.uri, name: e.item.name, artists: e.item.artists.map((a: any) => a.name) }))
+    console.info(`[rater] first entries of the playlist: ${entries.slice(0, 3).map((e) => `"${e.name}" ${e.uri}`).join(' | ')}`)
+    const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
+    return entries
+        .filter((e) => same(e.name, track.name) && e.artists.some((a) => track.artists.toLowerCase().includes(a.toLowerCase())))
+        .map((e) => e.uri)
+}
+
 // Spotify answers 200 with the unchanged snapshot when a removal matched nothing, so success is only
-// believed once the playlist is actually shorter. Returns false when the track is still in the playlist.
-export const removeFromPlaylist = async (token: string, playlistId: string, uri: string): Promise<boolean> => {
+// believed once the playlist is actually shorter. Tries, in order: the URI the player reports, the original
+// URI of a relinked track, then whatever URI the playlist itself stores for that title and artist.
+// Returns false when the track is still in the playlist.
+export const removeFromPlaylist = async (token: string, playlistId: string, track: TrackRef): Promise<boolean> => {
     const before = await playlistTotal(token, playlistId)
+    const tried = new Set<string>()
     const attempt = async (candidate: string) => {
+        tried.add(candidate)
         const res = await removeItem(token, playlistId, candidate)
         const after = await playlistTotal(token, playlistId)
         console.info(`[rater] remove ${candidate}: items ${before} -> ${after}, snapshot ${res?.snapshot_id}`)
         return after < before
     }
-    if (await attempt(uri)) return true
+    if (await attempt(track.uri)) return true
+
     const original = await originalUriOfCurrentTrack(token)
-    console.warn(`[rater] removing ${uri} changed nothing; original (linked_from) uri: ${original ?? 'none'}`)
-    return original !== null && original !== uri && (await attempt(original))
+    console.warn(`[rater] removing ${track.uri} changed nothing; original (linked_from) uri: ${original ?? 'none'}`)
+    if (original !== null && !tried.has(original) && (await attempt(original))) return true
+
+    const stored = await storedUrisOf(token, playlistId, track)
+    console.warn(`[rater] uris the playlist stores for "${track.name}": ${stored.length ? stored.join(', ') : 'none found in its first 50 entries'}`)
+    for (const candidate of stored) {
+        if (!tried.has(candidate) && (await attempt(candidate))) return true
+    }
+    return false
 }
 
 export const myPlaylists = async (token: string): Promise<{ id: string; name: string }[]> => {
