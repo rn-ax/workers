@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { authorizeUrl, challengeFor, exchangeCode, randomVerifier, refresh, type Tokens } from './pkce'
 import { collect, type Diagnostics } from './diagnostics'
+import { SPOTIFY_CLIENT_ID } from './config'
 
 const store = {
     get: (k: string) => {
@@ -24,7 +25,6 @@ const api = async (token: string, path: string, init?: RequestInit) => {
 export default function App() {
     const [diag, setDiag] = useState<Diagnostics>({})
     const [log, setLog] = useState<string[]>([])
-    const [clientId, setClientId] = useState(store.get('clientId'))
     const [redirectUri, setRedirectUri] = useState(store.get('redirectUri') || location.origin + '/')
     const [pasted, setPasted] = useState('')
     const [playlistId, setPlaylistId] = useState(store.get('playlistId'))
@@ -34,7 +34,7 @@ export default function App() {
     const playerRef = useRef<any>(null)
     const tokenRef = useRef('')
     // Login attempt state lives in memory: the popup's page may not share storage with this one.
-    const attempt = useRef({ verifier: '', clientId: '', redirectUri: '' })
+    const attempt = useRef({ verifier: '', clientId: SPOTIFY_CLIENT_ID, redirectUri: '' })
     tokenRef.current = tokens?.access_token ?? ''
 
     const say = (m: string) => setLog((l) => [...l, `${new Date().toISOString().slice(11, 19)} ${m}`])
@@ -64,7 +64,7 @@ export default function App() {
                     say('no opener answered, finishing locally')
                     finishLogin(code, {
                         verifier: store.get('verifier'),
-                        clientId: store.get('clientId'),
+                        clientId: SPOTIFY_CLIENT_ID,
                         redirectUri: store.get('redirectUri'),
                     })
                 }
@@ -81,12 +81,11 @@ export default function App() {
     }, [])
 
     const login = async () => {
-        store.set('clientId', clientId)
         store.set('redirectUri', redirectUri)
         const verifier = randomVerifier()
         store.set('verifier', verifier)
-        attempt.current = { verifier, clientId, redirectUri }
-        const url = authorizeUrl(clientId, redirectUri, await challengeFor(verifier), crypto.randomUUID())
+        attempt.current = { verifier, clientId: SPOTIFY_CLIENT_ID, redirectUri }
+        const url = authorizeUrl(SPOTIFY_CLIENT_ID, redirectUri, await challengeFor(verifier), crypto.randomUUID())
         const popup = window.open(url, 'spotify-login', 'width=480,height=720')
         say(popup ? 'popup opened' : 'window.open returned null (popup blocked or sandboxed)')
     }
@@ -116,7 +115,7 @@ export default function App() {
 
     const tryRefresh = async () => {
         try {
-            const t = await refresh(clientId, store.get('refreshToken'))
+            const t = await refresh(SPOTIFY_CLIENT_ID, store.get('refreshToken'))
             setTokens(t)
             if (t.refresh_token) store.set('refreshToken', t.refresh_token)
             say('silent refresh OK (a stored refresh token survived a reload)')
@@ -207,8 +206,6 @@ export default function App() {
 
             <h4 className="ui dividing header">1. Login (PKCE, no secret)</h4>
             <div className="ui form">
-                <div className="field"><label>Client ID</label>
-                    <input value={clientId} onChange={(e) => setClientId(e.target.value)} /></div>
                 <div className="field"><label>Redirect URI (must be registered in the Spotify dashboard)</label>
                     <input value={redirectUri} onChange={(e) => setRedirectUri(e.target.value)} /></div>
                 <button className="ui primary button" onClick={login}>Log in with Spotify</button>
