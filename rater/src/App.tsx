@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { RATING_PLAYLISTS, SOURCE_PLAYLIST } from './config'
 import { skipTarget } from './seek'
-import { addItem, friendlyError, playlistTotal, removeItem, startContext } from './spotify'
+import { addItem, friendlyError, playlistTotal, removeFromPlaylist, startContext } from './spotify'
 import { useAuth } from './useAuth'
 import { usePlayer } from './usePlayer'
 import { usePosition } from './usePosition'
@@ -23,6 +23,8 @@ export default function App() {
     const [started, setStarted] = useState(false)
     const [allRated, setAllRated] = useState(false)
     const [busy, setBusy] = useState(false)
+    // Adds already made for a track whose removal from the source failed, so retrying a rating never files it twice.
+    const filed = useRef(new Set<string>())
     const [notice, setNotice] = useState<Notice | null>(null)
 
     // (Re)start the source playlist from its first track, or notice that nothing is left to rate.
@@ -57,11 +59,15 @@ export default function App() {
         console.info(`[rater] rating ${stars}: "${name}" (${uri}) -> ${target.id ? `add to "${target.name}"` : 'drop'}, then remove from source`)
         setBusy(true)
         setNotice(null)
+        const key = `${target.id}|${uri}`
         let token: string
         try {
             token = await auth.getToken()
-            if (target.id) {
+            if (target.id && filed.current.has(key)) {
+                console.info(`[rater] already filed under "${target.name}", only retrying the removal`)
+            } else if (target.id) {
                 const added = await addItem(token, target.id, uri)
+                filed.current.add(key)
                 console.info(`[rater] added to "${target.name}", snapshot ${added?.snapshot_id}`)
             }
         } catch (e) {
@@ -71,10 +77,19 @@ export default function App() {
             return
         }
         try {
-            const removed = await removeItem(token, SOURCE_PLAYLIST.id, uri)
-            console.info(`[rater] removed from "${SOURCE_PLAYLIST.name}", snapshot ${removed?.snapshot_id}`)
+            if (!(await removeFromPlaylist(token, SOURCE_PLAYLIST.id, uri))) {
+                console.error(`[rater] "${name}" (${uri}) is still in "${SOURCE_PLAYLIST.name}" after trying to remove it`)
+                setNotice({
+                    kind: 'error',
+                    text: `${name} is still in ${SOURCE_PLAYLIST.name}: Spotify didn't remove it. ${target.id ? `It is filed under ${target.name}. ` : ''}Rate it again to retry.`,
+                })
+                setBusy(false)
+                return
+            }
+            filed.current.delete(key)
+            console.info(`[rater] removed from "${SOURCE_PLAYLIST.name}"`)
         } catch (e) {
-            console.warn(`[rater] filed "${name}" but could not remove it from the source`, e)
+            console.warn(`[rater] could not remove "${name}" from the source`, e)
             setNotice({ kind: 'warning', text: `${name} was filed but not removed from the source: ${friendlyError(e)}` })
             setBusy(false)
             return

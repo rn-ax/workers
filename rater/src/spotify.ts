@@ -48,6 +48,27 @@ export const addItem = (token: string, playlistId: string, uri: string) =>
 export const removeItem = (token: string, playlistId: string, uri: string) =>
     api(token, `/playlists/${playlistId}/items`, { method: 'DELETE', body: JSON.stringify({ items: [{ uri }] }) })
 
+// A track relinked to the listener's market plays under a different URI than the one the playlist stores;
+// Spotify says to operate on the original, which only the Web API (not the player SDK) exposes.
+const originalUriOfCurrentTrack = async (token: string): Promise<string | null> =>
+    (await api(token, '/me/player/currently-playing?market=from_token'))?.item?.linked_from?.uri ?? null
+
+// Spotify answers 200 with the unchanged snapshot when a removal matched nothing, so success is only
+// believed once the playlist is actually shorter. Returns false when the track is still in the playlist.
+export const removeFromPlaylist = async (token: string, playlistId: string, uri: string): Promise<boolean> => {
+    const before = await playlistTotal(token, playlistId)
+    const attempt = async (candidate: string) => {
+        const res = await removeItem(token, playlistId, candidate)
+        const after = await playlistTotal(token, playlistId)
+        console.info(`[rater] remove ${candidate}: items ${before} -> ${after}, snapshot ${res?.snapshot_id}`)
+        return after < before
+    }
+    if (await attempt(uri)) return true
+    const original = await originalUriOfCurrentTrack(token)
+    console.warn(`[rater] removing ${uri} changed nothing; original (linked_from) uri: ${original ?? 'none'}`)
+    return original !== null && original !== uri && (await attempt(original))
+}
+
 export const myPlaylists = async (token: string): Promise<{ id: string; name: string }[]> => {
     const out: { id: string; name: string }[] = []
     for (let path: string | null = '/me/playlists?limit=50'; path; ) {
