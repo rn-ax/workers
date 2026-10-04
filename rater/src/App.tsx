@@ -143,7 +143,6 @@ export default function App() {
 
     const playing = started && !allRated
     const body = () => {
-        if (auth.status === 'popup') return <p className="muted">Finishing login… you can close this window.</p>
         if (auth.status === 'loading') return <div className="spinner" role="status" aria-label="Loading" />
         if (auth.status === 'out') return <button className="button" onClick={auth.signIn}>Log in with Spotify</button>
         if (!configured) return <PlaylistHelper getToken={auth.getToken} />
