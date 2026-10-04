@@ -4,9 +4,9 @@ import { skipTarget } from './seek'
 import { addItem, friendlyError, playlistTotal, removeFromPlaylist, startContext } from './spotify'
 import { useAuth } from './useAuth'
 import { usePlayer } from './usePlayer'
+import { useCoverBackground } from './useCoverBackground'
 import { usePosition } from './usePosition'
 import { Controls } from './components/Controls'
-import { Backdrop } from './components/Backdrop'
 import { LogoutIcon } from './components/icons'
 import { PlaylistHelper } from './components/PlaylistHelper'
 import { Scrubber } from './components/Scrubber'
@@ -177,11 +177,11 @@ export default function App() {
 
     // The player fills the page: track info on top, rating and controls in the middle, scrubber along the bottom.
     const showPlayer = auth.status === 'in' && configured && attempted && playing && !player.autoplayBlocked
+    useCoverBackground(showPlayer ? player.now?.image : undefined)
     if (showPlayer) {
         const now = player.now
         return (
             <main className="stage player">
-                <Backdrop image={now?.image} />
                 {logout}
                 <header className="top"><TrackInfo track={now} /></header>
                 <div className="middle">
