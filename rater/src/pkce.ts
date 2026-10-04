@@ -33,7 +33,7 @@ export const authorizeUrl = (clientId: string, redirectUri: string, challenge: s
         state,
     })
 
-export type Tokens = { access_token: string; refresh_token?: string; expires_in: number }
+export type Tokens = { access_token: string; refresh_token?: string; expires_in: number; scope?: string }
 
 const tokenRequest = async (body: Record<string, string>): Promise<Tokens> => {
     const res = await fetch('https://accounts.spotify.com/api/token', {

@@ -102,6 +102,7 @@ export default function App() {
             setTokens(t)
             if (t.refresh_token) store.set('refreshToken', t.refresh_token)
             say('token exchange OK (browser-only, no client secret)')
+            say(`granted scope: ${t.scope ?? '(not reported)'}`)
         } catch (e) {
             say(`token exchange FAILED: ${e}`)
         }
@@ -119,6 +120,7 @@ export default function App() {
             setTokens(t)
             if (t.refresh_token) store.set('refreshToken', t.refresh_token)
             say('silent refresh OK (a stored refresh token survived a reload)')
+            say(`granted scope: ${t.scope ?? '(not reported)'}`)
         } catch (e) {
             say(`refresh FAILED: ${e}`)
         }
@@ -169,13 +171,20 @@ export default function App() {
             const state = await playerRef.current.getCurrentState()
             const uri = state?.track_window.current_track.uri
             if (!uri) return say('no current track')
-            await api(tokenRef.current, `/playlists/${playlistId}/tracks`, {
+            await api(tokenRef.current, `/playlists/${playlistId}/items`, {
                 method: 'POST',
                 body: JSON.stringify({ uris: [uri] }),
             })
             say(`added ${uri} to playlist (playlist write scope works)`)
         } catch (e) {
             say(`add FAILED: ${e}`)
+            try {
+                const me = await api(tokenRef.current, '/me')
+                const pl = await api(tokenRef.current, `/playlists/${playlistId}?fields=owner(id),collaborative,public,name`)
+                say(`logged in as ${me.id}; playlist "${pl.name}" owner ${pl.owner.id}, collaborative=${pl.collaborative}, public=${pl.public}`)
+            } catch (e2) {
+                say(`could not read playlist details either: ${e2}`)
+            }
         }
     }
 
