@@ -1,4 +1,12 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["github>rn-ax/poppycock"]
+  "extends": ["github>rn-ax/poppycock"],
+  "packageRules": [
+    {
+      "description": "@cloudflare/vitest-pool-workers peers on vitest ^4.1.0 (latest 0.23.0), so vitest stays on 4.x wherever the pool is used. Remove this rule once the pool supports vitest 5.",
+      "matchPackageNames": ["vitest"],
+      "matchFileNames": ["app-switcher/package.json", "windmill-public-proxy/package.json"],
+      "allowedVersions": "<5"
+    }
+  ]
 }
