@@ -6,6 +6,10 @@ A static page (Vite + React) served as Worker assets at `rater.rn.ax`. Spotify l
 
 Run the dev server at `http://127.0.0.1:4417` (`npx vite --host 127.0.0.1 --port 4417 --strictPort`). Spotify only redirects back to registered URIs, and this one and `https://rater.rn.ax` are the only ones registered for the app, so login fails on any other host or port (including `localhost` and Vite's default 5173).
 
+## Starting playback
+
+Start the source playlist with a bare `context_uri` and nothing else (`startContext` in `spotify.ts`). Spotify answers any play command that names which song to start with `403 Player command failed: Restriction violated`: a context with an `offset` (by position or by URI) and `uris` (alone, after a transfer to the device, or with `position_ms`) are all refused. So the app can't tell the player "play exactly this song", and the player may report a relinked copy of a song under a different URI than the one the playlist stores. That is why removing a rated track tries the player's URI, then the original (`linked_from`) URI, then the URI the playlist stores for that title and artist.
+
 ## UI conventions
 
 - **Text buttons** (log in, start/tap to play, check again, list playlists) all use the one `.button` class: white text, a thin white outline, no background fill. Don't add a filled or gradient variant; extend `.button` instead.
