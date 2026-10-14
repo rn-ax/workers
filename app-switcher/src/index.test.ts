@@ -41,6 +41,24 @@ describe("app-switcher", () => {
 		expect(body.indexOf("<h1>Radarr</h1>")).toBeGreaterThan(body.indexOf("</div>"));
 	});
 
+	it("measures the bar and offsets top-pinned elements below it", async () => {
+		stubFetch(
+			new Response("<html><head></head><body><header>x</header></body></html>", {
+				headers: { "content-type": "text/html" },
+			})
+		);
+
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(new Request("https://radarr.rn.ax/"), env, ctx);
+		await waitOnExecutionContext(ctx);
+
+		const body = await response.text();
+		expect(body).toContain('id="rn-app-switcher"');
+		expect(body).toContain("--rn-bar-h");
+		expect(body).toContain("padding-top:var(--rn-bar-h,");
+		expect(body).toContain('getComputedStyle(el)');
+	});
+
 	it("marks the current app's link as active", async () => {
 		stubFetch(new Response("<html><body></body></html>", { headers: { "content-type": "text/html" } }));
 
@@ -75,6 +93,7 @@ describe("app-switcher", () => {
 		await waitOnExecutionContext(ctx);
 
 		const body = await response.text();
-		expect(body).not.toContain("<script>");
+		// The only script is the offset script; no app name is rendered as markup.
+		expect(body.match(/<script>/g)).toHaveLength(1);
 	});
 });
