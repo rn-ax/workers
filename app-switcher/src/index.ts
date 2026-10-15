@@ -15,6 +15,7 @@ const APPS: AppLink[] = [
 	{ name: "Gymrat", host: "gym.rn.ax" },
 	{ name: "Nutcracker", host: "nut.rn.ax" },
 	{ name: "Seerr", host: "ovr.rn.ax" },
+	{ name: "Paperless", host: "paper.rn.ax" },
 	{ name: "Portal", host: "rn.ax" },
 	{ name: "Prompthawk", host: "prompt.rn.ax" },
 	{ name: "Radarr", host: "radarr.rn.ax" },

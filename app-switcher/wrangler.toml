@@ -35,6 +35,10 @@ pattern = "ovr.rn.ax/*"
 zone_name = "rn.ax"
 
 [[routes]]
+pattern = "paper.rn.ax/*"
+zone_name = "rn.ax"
+
+[[routes]]
 pattern = "rn.ax/*"
 zone_name = "rn.ax"
 
