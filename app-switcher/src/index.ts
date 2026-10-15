@@ -4,9 +4,10 @@ interface AppLink {
 }
 
 // Only apps confirmed to render plain HTML without a layout the injected bar
-// is likely to clash with. Add more hosts here (and to wrangler.toml's
-// routes) once each one's been checked.
+// is likely to clash with. Add more hosts here once each one's been checked;
+// wrangler.toml's wildcard routes already cover them.
 const APPS: AppLink[] = [
+	{ name: "Beszel", host: "bzl.rn.ax" },
 	{ name: "Bookworm", host: "book.rn.ax" },
 	{ name: "Butterfly", host: "butter.rn.ax" },
 	{ name: "Copycat", host: "copy.rn.ax" },
@@ -14,19 +15,27 @@ const APPS: AppLink[] = [
 	{ name: "Grocy", host: "grocy.rn.ax" },
 	{ name: "Gymrat", host: "gym.rn.ax" },
 	{ name: "Nutcracker", host: "nut.rn.ax" },
-	{ name: "Seerr", host: "ovr.rn.ax" },
 	{ name: "Paperless", host: "paper.rn.ax" },
 	{ name: "Portal", host: "rn.ax" },
 	{ name: "Prompthawk", host: "prompt.rn.ax" },
 	{ name: "Radarr", host: "radarr.rn.ax" },
-	{ name: "Songbird", host: "song.rn.ax" },
+	{ name: "Seerr", host: "ovr.rn.ax" },
 	{ name: "Sonarr", host: "sonarr.rn.ax" },
+	{ name: "Songbird", host: "song.rn.ax" },
 	{ name: "Stringbean", host: "string.rn.ax" },
 	{ name: "Tautulli", host: "tau.rn.ax" },
 	{ name: "TrueNAS", host: "nas.rn.ax" },
 	{ name: "Windmill", host: "windmill.rn.ax" },
 	{ name: "Workhorse", host: "work.rn.ax" },
 ].sort((a, b) => a.name.localeCompare(b.name));
+
+const APP_HOSTS = new Set(APPS.map((app) => app.host));
+
+interface Env {
+	// Email of the one Access user who sees the bar. A Worker secret, so the
+	// address stays out of this public repo; without it nobody sees the bar.
+	SWITCHER_EMAIL?: string;
+}
 
 const BAR_ID = "rn-app-switcher";
 
@@ -76,6 +85,30 @@ for(var i=0;i<m.length;i++){if(!bar.contains(m[i].target)){schedule();return;}}
 }).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:["class","style","hidden"]});
 })();`;
 
+// The worker runs after Access, so each request carries the authenticated
+// user's email. The JWT fallback is decoded without verifying its signature:
+// Access has already authenticated the request, and the result only decides
+// who sees a navigation bar.
+function accessEmail(request: Request): string | null {
+	const header = request.headers.get("Cf-Access-Authenticated-User-Email");
+	if (header) return header;
+
+	const payload = request.headers.get("Cf-Access-Jwt-Assertion")?.split(".")[1];
+	if (!payload) return null;
+	try {
+		const email = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/"))).email;
+		return typeof email === "string" ? email : null;
+	} catch {
+		return null;
+	}
+}
+
+function isSwitcherUser(request: Request, env: Env): boolean {
+	const allowed = env.SWITCHER_EMAIL?.trim().toLowerCase();
+	const actual = accessEmail(request)?.trim().toLowerCase();
+	return Boolean(allowed) && actual === allowed;
+}
+
 function escapeHtml(value: string): string {
 	return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
@@ -92,7 +125,13 @@ function renderBar(currentHost: string): string {
 }
 
 export default {
-	async fetch(request: Request): Promise<Response> {
+	async fetch(request: Request, env: Env): Promise<Response> {
+		// The routes cover every rn.ax hostname; only hosts listed in APPS get
+		// the bar, and only for the configured user.
+		if (!APP_HOSTS.has(new URL(request.url).hostname) || !isSwitcherUser(request, env)) {
+			return fetch(request);
+		}
+
 		const upstream = await fetch(request);
 
 		const contentType = upstream.headers.get("content-type") ?? "";
