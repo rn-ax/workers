@@ -4,9 +4,10 @@ interface AppLink {
 }
 
 // Only apps confirmed to render plain HTML without a layout the injected bar
-// is likely to clash with. Add more hosts here (and to wrangler.toml's
-// routes) once each one's been checked.
+// is likely to clash with. Add more hosts here once each one's been checked;
+// wrangler.toml's wildcard routes already cover them.
 const APPS: AppLink[] = [
+	{ name: "Beszel", host: "bzl.rn.ax" },
 	{ name: "Bookworm", host: "book.rn.ax" },
 	{ name: "Butterfly", host: "butter.rn.ax" },
 	{ name: "Copycat", host: "copy.rn.ax" },
@@ -14,19 +15,21 @@ const APPS: AppLink[] = [
 	{ name: "Grocy", host: "grocy.rn.ax" },
 	{ name: "Gymrat", host: "gym.rn.ax" },
 	{ name: "Nutcracker", host: "nut.rn.ax" },
-	{ name: "Seerr", host: "ovr.rn.ax" },
 	{ name: "Paperless", host: "paper.rn.ax" },
 	{ name: "Portal", host: "rn.ax" },
 	{ name: "Prompthawk", host: "prompt.rn.ax" },
 	{ name: "Radarr", host: "radarr.rn.ax" },
-	{ name: "Songbird", host: "song.rn.ax" },
+	{ name: "Seerr", host: "ovr.rn.ax" },
 	{ name: "Sonarr", host: "sonarr.rn.ax" },
+	{ name: "Songbird", host: "song.rn.ax" },
 	{ name: "Stringbean", host: "string.rn.ax" },
 	{ name: "Tautulli", host: "tau.rn.ax" },
 	{ name: "TrueNAS", host: "nas.rn.ax" },
 	{ name: "Windmill", host: "windmill.rn.ax" },
 	{ name: "Workhorse", host: "work.rn.ax" },
 ].sort((a, b) => a.name.localeCompare(b.name));
+
+const APP_HOSTS = new Set(APPS.map((app) => app.host));
 
 const BAR_ID = "rn-app-switcher";
 
@@ -93,6 +96,11 @@ function renderBar(currentHost: string): string {
 
 export default {
 	async fetch(request: Request): Promise<Response> {
+		// The routes cover every rn.ax hostname; only hosts listed in APPS get the bar.
+		if (!APP_HOSTS.has(new URL(request.url).hostname)) {
+			return fetch(request);
+		}
+
 		const upstream = await fetch(request);
 
 		const contentType = upstream.headers.get("content-type") ?? "";

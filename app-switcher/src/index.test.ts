@@ -13,6 +13,23 @@ afterEach(() => {
 });
 
 describe("app-switcher", () => {
+	it("passes hosts that are not listed in APPS through untouched", async () => {
+		const fetchMock = stubFetch(
+			new Response("<html><head></head><body><h1>Rater</h1></body></html>", {
+				headers: { "content-type": "text/html; charset=utf-8" },
+			})
+		);
+
+		const ctx = createExecutionContext();
+		const request = new Request("https://rater.rn.ax/");
+		const response = await worker.fetch(request, env, ctx);
+		await waitOnExecutionContext(ctx);
+
+		expect(await response.text()).toBe("<html><head></head><body><h1>Rater</h1></body></html>");
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(fetchMock).toHaveBeenCalledWith(request);
+	});
+
 	it("leaves non-HTML responses untouched", async () => {
 		stubFetch(new Response('{"ok":true}', { headers: { "content-type": "application/json" } }));
 

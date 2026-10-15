@@ -2,78 +2,14 @@ name = "app-switcher"
 main = "src/index.ts"
 compatibility_date = "2026-09-01"
 
+# Every rn.ax hostname reaches the worker; src/index.ts passes through any host
+# that is not listed in APPS. The wildcard does not match the bare apex, so
+# that gets its own route. Routes take precedence over Custom Domains on the
+# same hostname, and the passthrough fetch reaches those workers unchanged.
 [[routes]]
-pattern = "book.rn.ax/*"
-zone_name = "rn.ax"
-
-[[routes]]
-pattern = "butter.rn.ax/*"
-zone_name = "rn.ax"
-
-[[routes]]
-pattern = "copy.rn.ax/*"
-zone_name = "rn.ax"
-
-[[routes]]
-pattern = "globe.rn.ax/*"
-zone_name = "rn.ax"
-
-[[routes]]
-pattern = "grocy.rn.ax/*"
-zone_name = "rn.ax"
-
-[[routes]]
-pattern = "gym.rn.ax/*"
-zone_name = "rn.ax"
-
-[[routes]]
-pattern = "nut.rn.ax/*"
-zone_name = "rn.ax"
-
-[[routes]]
-pattern = "ovr.rn.ax/*"
-zone_name = "rn.ax"
-
-[[routes]]
-pattern = "paper.rn.ax/*"
+pattern = "*.rn.ax/*"
 zone_name = "rn.ax"
 
 [[routes]]
 pattern = "rn.ax/*"
-zone_name = "rn.ax"
-
-[[routes]]
-pattern = "prompt.rn.ax/*"
-zone_name = "rn.ax"
-
-[[routes]]
-pattern = "radarr.rn.ax/*"
-zone_name = "rn.ax"
-
-[[routes]]
-pattern = "song.rn.ax/*"
-zone_name = "rn.ax"
-
-[[routes]]
-pattern = "sonarr.rn.ax/*"
-zone_name = "rn.ax"
-
-[[routes]]
-pattern = "string.rn.ax/*"
-zone_name = "rn.ax"
-
-[[routes]]
-pattern = "tau.rn.ax/*"
-zone_name = "rn.ax"
-
-[[routes]]
-pattern = "nas.rn.ax/*"
-zone_name = "rn.ax"
-
-[[routes]]
-pattern = "windmill.rn.ax/*"
-zone_name = "rn.ax"
-
-[[routes]]
-pattern = "work.rn.ax/*"
 zone_name = "rn.ax"
