@@ -59,6 +59,30 @@ describe("app-switcher", () => {
 		expect(body).toContain('getComputedStyle(el)');
 	});
 
+	it("hides the bar's horizontal scrollbar", async () => {
+		stubFetch(new Response("<html><head></head><body></body></html>", { headers: { "content-type": "text/html" } }));
+
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(new Request("https://radarr.rn.ax/"), env, ctx);
+		await waitOnExecutionContext(ctx);
+
+		const body = await response.text();
+		expect(body).toContain("scrollbar-width:none");
+		expect(body).toContain("#rn-app-switcher::-webkit-scrollbar{display:none}");
+	});
+
+	it("lists Overseerr's successor as Seerr", async () => {
+		stubFetch(new Response("<html><body></body></html>", { headers: { "content-type": "text/html" } }));
+
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(new Request("https://ovr.rn.ax/"), env, ctx);
+		await waitOnExecutionContext(ctx);
+
+		const body = await response.text();
+		expect(body).toMatch(/href="https:\/\/ovr\.rn\.ax\/"[^>]*>Seerr</);
+		expect(body).not.toContain(">Overseerr<");
+	});
+
 	it("marks the current app's link as active", async () => {
 		stubFetch(new Response("<html><body></body></html>", { headers: { "content-type": "text/html" } }));
 

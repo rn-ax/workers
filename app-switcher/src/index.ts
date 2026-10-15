@@ -14,7 +14,7 @@ const APPS: AppLink[] = [
 	{ name: "Grocy", host: "grocy.rn.ax" },
 	{ name: "Gymrat", host: "gym.rn.ax" },
 	{ name: "Nutcracker", host: "nut.rn.ax" },
-	{ name: "Overseerr", host: "ovr.rn.ax" },
+	{ name: "Seerr", host: "ovr.rn.ax" },
 	{ name: "Portal", host: "rn.ax" },
 	{ name: "Prompthawk", host: "prompt.rn.ax" },
 	{ name: "Radarr", host: "radarr.rn.ax" },
@@ -87,7 +87,7 @@ function renderBar(currentHost: string): string {
 		return `<a href="https://${app.host}/" style="color:${color};font-weight:${weight};text-decoration:none;white-space:nowrap;">${escapeHtml(app.name)}</a>`;
 	}).join("");
 
-	return `<div style="position:fixed;top:0;left:0;right:0;padding:0.5rem 1rem;background:#111827;font:12px system-ui,sans-serif;display:flex;justify-content:center;align-items:center;gap:16px;overflow-x:auto;white-space:nowrap;z-index:2147483647;box-sizing:border-box;" id="${BAR_ID}">${links}</div><script>${OFFSET_SCRIPT}</script>`;
+	return `<div style="position:fixed;top:0;left:0;right:0;padding:0.5rem 1rem;background:#111827;font:12px system-ui,sans-serif;display:flex;justify-content:center;align-items:center;gap:16px;overflow-x:auto;scrollbar-width:none;white-space:nowrap;z-index:2147483647;box-sizing:border-box;" id="${BAR_ID}">${links}</div><script>${OFFSET_SCRIPT}</script>`;
 }
 
 export default {
@@ -117,7 +117,7 @@ export default {
 				element(el) {
 					// padding (not margin) so it can't collapse into a child's
 					// own margin, and !important to beat the app's own body rule.
-					el.append(`<style>body{padding-top:var(--rn-bar-h,${BAR_OFFSET}) !important}</style>`, { html: true });
+					el.append(`<style>body{padding-top:var(--rn-bar-h,${BAR_OFFSET}) !important}#${BAR_ID}::-webkit-scrollbar{display:none}</style>`, { html: true });
 				},
 			});
 
