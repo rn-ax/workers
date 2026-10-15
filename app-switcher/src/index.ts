@@ -31,6 +31,12 @@ const APPS: AppLink[] = [
 
 const APP_HOSTS = new Set(APPS.map((app) => app.host));
 
+interface Env {
+	// Email of the one Access user who sees the bar. A Worker secret, so the
+	// address stays out of this public repo; without it nobody sees the bar.
+	SWITCHER_EMAIL?: string;
+}
+
 const BAR_ID = "rn-app-switcher";
 
 // Fallback used until the script below has measured the bar.
@@ -79,6 +85,30 @@ for(var i=0;i<m.length;i++){if(!bar.contains(m[i].target)){schedule();return;}}
 }).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:["class","style","hidden"]});
 })();`;
 
+// The worker runs after Access, so each request carries the authenticated
+// user's email. The JWT fallback is decoded without verifying its signature:
+// Access has already authenticated the request, and the result only decides
+// who sees a navigation bar.
+function accessEmail(request: Request): string | null {
+	const header = request.headers.get("Cf-Access-Authenticated-User-Email");
+	if (header) return header;
+
+	const payload = request.headers.get("Cf-Access-Jwt-Assertion")?.split(".")[1];
+	if (!payload) return null;
+	try {
+		const email = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/"))).email;
+		return typeof email === "string" ? email : null;
+	} catch {
+		return null;
+	}
+}
+
+function isSwitcherUser(request: Request, env: Env): boolean {
+	const allowed = env.SWITCHER_EMAIL?.trim().toLowerCase();
+	const actual = accessEmail(request)?.trim().toLowerCase();
+	return Boolean(allowed) && actual === allowed;
+}
+
 function escapeHtml(value: string): string {
 	return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
@@ -95,9 +125,10 @@ function renderBar(currentHost: string): string {
 }
 
 export default {
-	async fetch(request: Request): Promise<Response> {
-		// The routes cover every rn.ax hostname; only hosts listed in APPS get the bar.
-		if (!APP_HOSTS.has(new URL(request.url).hostname)) {
+	async fetch(request: Request, env: Env): Promise<Response> {
+		// The routes cover every rn.ax hostname; only hosts listed in APPS get
+		// the bar, and only for the configured user.
+		if (!APP_HOSTS.has(new URL(request.url).hostname) || !isSwitcherUser(request, env)) {
 			return fetch(request);
 		}
 

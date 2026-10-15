@@ -1,6 +1,14 @@
-import { createExecutionContext, env, waitOnExecutionContext } from "cloudflare:test";
+import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import worker from "./index";
+
+const ME = "me@example.com";
+const testEnv = { SWITCHER_EMAIL: ME };
+
+// A request as Access forwards it: carrying the authenticated user's email.
+function asUser(url: string, email: string = ME) {
+	return new Request(url, { headers: { "Cf-Access-Authenticated-User-Email": email } });
+}
 
 function stubFetch(response: Response) {
 	const fetchMock = vi.fn(async () => response);
@@ -13,6 +21,50 @@ afterEach(() => {
 });
 
 describe("app-switcher", () => {
+	it("shows the bar only to the configured Access user", async () => {
+		const html = "<html><head></head><body><h1>Radarr</h1></body></html>";
+		stubFetch(new Response(html, { headers: { "content-type": "text/html" } }));
+
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(asUser("https://radarr.rn.ax/", "someone@example.com"), testEnv, ctx);
+		await waitOnExecutionContext(ctx);
+
+		expect(await response.text()).toBe(html);
+	});
+
+	it("shows no bar when no user is configured", async () => {
+		const html = "<html><head></head><body><h1>Radarr</h1></body></html>";
+		stubFetch(new Response(html, { headers: { "content-type": "text/html" } }));
+
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(asUser("https://radarr.rn.ax/"), {}, ctx);
+		await waitOnExecutionContext(ctx);
+
+		expect(await response.text()).toBe(html);
+	});
+
+	it("matches the configured user regardless of letter case", async () => {
+		stubFetch(new Response("<html><head></head><body></body></html>", { headers: { "content-type": "text/html" } }));
+
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(asUser("https://radarr.rn.ax/", "ME@Example.com"), testEnv, ctx);
+		await waitOnExecutionContext(ctx);
+
+		expect(await response.text()).toContain('id="rn-app-switcher"');
+	});
+
+	it("identifies the user from the Access JWT when the email header is absent", async () => {
+		stubFetch(new Response("<html><head></head><body></body></html>", { headers: { "content-type": "text/html" } }));
+		const payload = btoa(JSON.stringify({ email: ME })).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+
+		const ctx = createExecutionContext();
+		const request = new Request("https://radarr.rn.ax/", { headers: { "Cf-Access-Jwt-Assertion": `h.${payload}.s` } });
+		const response = await worker.fetch(request, testEnv, ctx);
+		await waitOnExecutionContext(ctx);
+
+		expect(await response.text()).toContain('id="rn-app-switcher"');
+	});
+
 	it("passes hosts that are not listed in APPS through untouched", async () => {
 		const fetchMock = stubFetch(
 			new Response("<html><head></head><body><h1>Rater</h1></body></html>", {
@@ -21,8 +73,8 @@ describe("app-switcher", () => {
 		);
 
 		const ctx = createExecutionContext();
-		const request = new Request("https://rater.rn.ax/");
-		const response = await worker.fetch(request, env, ctx);
+		const request = asUser("https://rater.rn.ax/");
+		const response = await worker.fetch(request, testEnv, ctx);
 		await waitOnExecutionContext(ctx);
 
 		expect(await response.text()).toBe("<html><head></head><body><h1>Rater</h1></body></html>");
@@ -34,7 +86,7 @@ describe("app-switcher", () => {
 		stubFetch(new Response('{"ok":true}', { headers: { "content-type": "application/json" } }));
 
 		const ctx = createExecutionContext();
-		const response = await worker.fetch(new Request("https://radarr.rn.ax/api/v3/movie"), env, ctx);
+		const response = await worker.fetch(asUser("https://radarr.rn.ax/api/v3/movie"), testEnv, ctx);
 		await waitOnExecutionContext(ctx);
 
 		expect(await response.text()).toBe('{"ok":true}');
@@ -48,7 +100,7 @@ describe("app-switcher", () => {
 		);
 
 		const ctx = createExecutionContext();
-		const response = await worker.fetch(new Request("https://radarr.rn.ax/"), env, ctx);
+		const response = await worker.fetch(asUser("https://radarr.rn.ax/"), testEnv, ctx);
 		await waitOnExecutionContext(ctx);
 
 		const body = await response.text();
@@ -66,7 +118,7 @@ describe("app-switcher", () => {
 		);
 
 		const ctx = createExecutionContext();
-		const response = await worker.fetch(new Request("https://radarr.rn.ax/"), env, ctx);
+		const response = await worker.fetch(asUser("https://radarr.rn.ax/"), testEnv, ctx);
 		await waitOnExecutionContext(ctx);
 
 		const body = await response.text();
@@ -80,7 +132,7 @@ describe("app-switcher", () => {
 		stubFetch(new Response("<html><head></head><body></body></html>", { headers: { "content-type": "text/html" } }));
 
 		const ctx = createExecutionContext();
-		const response = await worker.fetch(new Request("https://radarr.rn.ax/"), env, ctx);
+		const response = await worker.fetch(asUser("https://radarr.rn.ax/"), testEnv, ctx);
 		await waitOnExecutionContext(ctx);
 
 		const body = await response.text();
@@ -92,7 +144,7 @@ describe("app-switcher", () => {
 		stubFetch(new Response("<html><body></body></html>", { headers: { "content-type": "text/html" } }));
 
 		const ctx = createExecutionContext();
-		const response = await worker.fetch(new Request("https://ovr.rn.ax/"), env, ctx);
+		const response = await worker.fetch(asUser("https://ovr.rn.ax/"), testEnv, ctx);
 		await waitOnExecutionContext(ctx);
 
 		const body = await response.text();
@@ -104,7 +156,7 @@ describe("app-switcher", () => {
 		stubFetch(new Response("<html><body></body></html>", { headers: { "content-type": "text/html" } }));
 
 		const ctx = createExecutionContext();
-		const response = await worker.fetch(new Request("https://sonarr.rn.ax/"), env, ctx);
+		const response = await worker.fetch(asUser("https://sonarr.rn.ax/"), testEnv, ctx);
 		await waitOnExecutionContext(ctx);
 
 		const body = await response.text();
@@ -120,7 +172,7 @@ describe("app-switcher", () => {
 		);
 
 		const ctx = createExecutionContext();
-		const response = await worker.fetch(new Request("https://radarr.rn.ax/"), env, ctx);
+		const response = await worker.fetch(asUser("https://radarr.rn.ax/"), testEnv, ctx);
 		await waitOnExecutionContext(ctx);
 
 		expect(response.headers.get("content-security-policy")).toBeNull();
@@ -130,7 +182,7 @@ describe("app-switcher", () => {
 		stubFetch(new Response("<html><body></body></html>", { headers: { "content-type": "text/html" } }));
 
 		const ctx = createExecutionContext();
-		const response = await worker.fetch(new Request("https://radarr.rn.ax/"), env, ctx);
+		const response = await worker.fetch(asUser("https://radarr.rn.ax/"), testEnv, ctx);
 		await waitOnExecutionContext(ctx);
 
 		const body = await response.text();
