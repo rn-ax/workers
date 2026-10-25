@@ -1,13 +1,15 @@
-name: Deploy to Cloudflare
+name: CI
 
 on:
+  pull_request:
   push:
     branches: [main]
 
 jobs:
-  deploy:
+  worker:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         worker: [app-switcher, rater, windmill-mail-router, windmill-public-proxy]
     steps:
@@ -17,13 +19,18 @@ jobs:
 
       - name: Install dependencies
         working-directory: ${{ matrix.worker }}
-        run: npm install
+        run: npm ci
+
+      - name: Build
+        working-directory: ${{ matrix.worker }}
+        run: npm run build --if-present
 
       - name: Test
         working-directory: ${{ matrix.worker }}
         run: npm test --if-present
 
       - name: Deploy
+        if: github.event_name == 'push'
         working-directory: ${{ matrix.worker }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DEPLOY_TOKEN }}
