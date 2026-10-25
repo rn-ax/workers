@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        worker: [app-switcher, rater, windmill-mail-router, windmill-public-proxy]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.worker }}
+        run: npm ci
+
+      - name: Build
+        working-directory: ${{ matrix.worker }}
+        run: npm run build --if-present
+
+      - name: Test
+        working-directory: ${{ matrix.worker }}
+        run: npm test --if-present
