@@ -18,4 +18,4 @@ The host must be an Access-gated hostname proxied through Cloudflare on the `rn.
 
 ## Deploy
 
-Merging to `main` runs the tests (`npm test`) and deploys through the repo's `deploy.yml` matrix.
+Merging to `main` runs the tests (`npm test`) and deploys through the repo's `ci.yml` matrix.
