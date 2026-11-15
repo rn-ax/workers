@@ -1,0 +1,18 @@
+name = "hedge"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+[assets]
+directory = "public"
+binding = "ASSETS"
+
+# The apex is a Custom Domain; app-switcher's own `rn.ax/*` route sits in front
+# of it and passes the request through. `www` already has a proxied DNS record,
+# so it is a plain route.
+[[routes]]
+pattern = "rn.ax"
+custom_domain = true
+
+[[routes]]
+pattern = "www.rn.ax/*"
+zone_name = "rn.ax"
