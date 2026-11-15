@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        worker: [app-switcher, rater, windmill-mail-router, windmill-public-proxy]
+        worker: [app-switcher, hedge, rater, windmill-mail-router, windmill-public-proxy]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
