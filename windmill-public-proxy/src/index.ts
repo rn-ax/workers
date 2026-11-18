@@ -68,15 +68,17 @@ async function inboxAudio(request: Request, env: Env, id: string): Promise<Respo
 		return notFound();
 	}
 	const aws = new AwsClient({ accessKeyId: env.GATEWAY_ACCESS_KEY, secretAccessKey: env.GATEWAY_SECRET_KEY, service: "s3", region: "us-east-1" });
-	const headers: Record<string, string> = {
-		"CF-Access-Client-Id": env.CF_ACCESS_CLIENT_ID,
-		"CF-Access-Client-Secret": env.CF_ACCESS_CLIENT_SECRET,
-	};
+	// The request is signed bare and the Access headers and Range are added after: Cloudflare changes headers on the way
+	// to the Tunnel, and a signed header that arrives changed fails the gateway's signature check.
+	const url = `${env.GATEWAY_URL}/inbox/${key.split("/").map(encodeURIComponent).join("/")}`;
+	const signed = await aws.sign(url, { method: "GET" });
+	signed.headers.set("CF-Access-Client-Id", env.CF_ACCESS_CLIENT_ID);
+	signed.headers.set("CF-Access-Client-Secret", env.CF_ACCESS_CLIENT_SECRET);
 	const range = request.headers.get("range");
 	if (range) {
-		headers.range = range;
+		signed.headers.set("range", range);
 	}
-	const upstream = await aws.fetch(`${env.GATEWAY_URL}/inbox/${key.split("/").map(encodeURIComponent).join("/")}`, { method: "GET", headers });
+	const upstream = await fetch(signed);
 	if (upstream.status === 404 || upstream.status === 403) {
 		return notFound();
 	}
