@@ -1,6 +1,6 @@
 import { createExecutionContext, env, waitOnExecutionContext } from "cloudflare:test";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import worker from "./index";
+import worker, { inboxKey } from "./index";
 
 function stubFetch(response: Response) {
 	const fetchMock = vi.fn(async () => response);
@@ -142,5 +142,44 @@ describe("windmill-public-proxy", () => {
 
 		expect(response.status).toBe(404);
 		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	describe("m/<id>", () => {
+		const id = (path: string) => btoa(path).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+
+		it("decodes an id to the path of the file in the inbox and refuses a path that leaves it", () => {
+			expect(inboxKey(id("folder/Song.m4a"))).toBe("folder/Song.m4a");
+			for (const bad of ["../x.m4a", "/etc/passwd", ".downloads/x", "a//b", ""]) {
+				expect(inboxKey(id(bad))).toBeNull();
+			}
+			expect(inboxKey("***")).toBeNull();
+		});
+
+		it("streams the object of the inbox bucket with its audio type, passing Range on", async () => {
+			const fetchMock = stubFetch(new Response("abc", { status: 206, headers: { "content-length": "3", "content-range": "bytes 0-2/10" } }));
+
+			const ctx = createExecutionContext();
+			const response = await worker.fetch(
+				new Request(`https://wm.rn.ax/m/${id("folder/Song.m4a")}`, { headers: { range: "bytes=0-2" } }),
+				{ ...env, GATEWAY_URL: "https://gw.example", GATEWAY_ACCESS_KEY: "k", GATEWAY_SECRET_KEY: "s" },
+				ctx
+			);
+			await waitOnExecutionContext(ctx);
+
+			const sent = fetchMock.mock.calls[0]![0] as Request;
+			expect(sent.url).toBe("https://gw.example/inbox/folder/Song.m4a");
+			expect(sent.headers.get("range")).toBe("bytes=0-2");
+			expect(response.status).toBe(206);
+			expect(response.headers.get("content-type")).toBe("audio/mp4");
+			expect(response.headers.get("content-range")).toBe("bytes 0-2/10");
+		});
+
+		it("answers a clean 404 for an id that is not a path in the inbox", async () => {
+			const ctx = createExecutionContext();
+			const response = await worker.fetch(new Request(`https://wm.rn.ax/m/${id("../x")}`), env, ctx);
+			await waitOnExecutionContext(ctx);
+
+			expect(response.status).toBe(404);
+		});
 	});
 });

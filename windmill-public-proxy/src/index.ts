@@ -1,3 +1,5 @@
+import { AwsClient } from "aws4fetch";
+
 export interface Env {
 	CF_ACCESS_CLIENT_ID: string;
 	CF_ACCESS_CLIENT_SECRET: string;
@@ -8,6 +10,12 @@ export interface Env {
 	// Lets apps/<slug> below redirect to the real /public/<workspace>/<secret>
 	// URL without that secret ever appearing in a link anyone types or shares.
 	APP_SECRETS_JSON: string;
+	// The S3 gateway (versitygw) behind a Tunnel hostname that Cloudflare Access
+	// protects with the same service token as above, and the keys of a gateway
+	// user that can read the `inbox` bucket. Serves m/<id> below.
+	GATEWAY_URL: string;
+	GATEWAY_ACCESS_KEY: string;
+	GATEWAY_SECRET_KEY: string;
 }
 
 const WINDMILL_BASE_URL = "https://windmill.rn.ax";
@@ -38,6 +46,50 @@ function appRedirect(env: Env, slug: string): Response | null {
 	return Response.redirect(`${WINDMILL_BASE_URL}/public/${env.WINDMILL_WORKSPACE}/${secret}`, 302);
 }
 
+// m/<id> -> the inbox file whose path in the `inbox` bucket is the base64url form
+// of <id>. The inbox is temporary, so the id is only opaque: no signature, no
+// expiry. A Range request is passed on so the browser can seek.
+const AUDIO_TYPES: Record<string, string> = { m4a: "audio/mp4", mp3: "audio/mpeg", flac: "audio/flac", ogg: "audio/ogg", opus: "audio/ogg", wav: "audio/wav", webm: "audio/webm" };
+
+export function inboxKey(id: string): string | null {
+	try {
+		const padded = id.replace(/-/g, "+").replace(/_/g, "/");
+		const key = new TextDecoder().decode(Uint8Array.from(atob(padded), (c) => c.charCodeAt(0)));
+		const parts = key.split("/");
+		return key && !key.startsWith("/") && !parts.some((p) => p === ".." || p === "." || p === "" || p.startsWith(".")) ? key : null;
+	} catch {
+		return null;
+	}
+}
+
+async function inboxAudio(request: Request, env: Env, id: string): Promise<Response> {
+	const key = inboxKey(id);
+	if (!key) {
+		return notFound();
+	}
+	const aws = new AwsClient({ accessKeyId: env.GATEWAY_ACCESS_KEY, secretAccessKey: env.GATEWAY_SECRET_KEY, service: "s3", region: "us-east-1" });
+	const headers: Record<string, string> = {
+		"CF-Access-Client-Id": env.CF_ACCESS_CLIENT_ID,
+		"CF-Access-Client-Secret": env.CF_ACCESS_CLIENT_SECRET,
+	};
+	const range = request.headers.get("range");
+	if (range) {
+		headers.range = range;
+	}
+	const upstream = await aws.fetch(`${env.GATEWAY_URL}/inbox/${key.split("/").map(encodeURIComponent).join("/")}`, { method: "GET", headers });
+	if (upstream.status === 404 || upstream.status === 403) {
+		return notFound();
+	}
+	const out = new Headers({ "accept-ranges": "bytes", "content-type": AUDIO_TYPES[key.split(".").pop()!.toLowerCase()] ?? "application/octet-stream" });
+	for (const name of ["content-length", "content-range"]) {
+		const value = upstream.headers.get(name);
+		if (value) {
+			out.set(name, value);
+		}
+	}
+	return new Response(upstream.body, { status: upstream.status, headers: out });
+}
+
 export default {
 	async fetch(request: Request, env: Env): Promise<Response> {
 		const url = new URL(request.url);
@@ -45,6 +97,10 @@ export default {
 
 		if (!path) {
 			return notFound();
+		}
+
+		if (path.startsWith("m/")) {
+			return inboxAudio(request, env, path.slice("m/".length));
 		}
 
 		if (path.startsWith("apps/")) {
